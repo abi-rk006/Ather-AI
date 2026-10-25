@@ -1,0 +1,36 @@
+# Backend Python & FastAPI Ignore Rules
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Secrets & Config
+.env
+.env.*
+!.env.example
+serviceAccountKey.json
+app/serviceAccountKey.json
+*serviceAccountKey*.json
+
+# Local Uploads & Vector Store Databases
+storage_uploads/
+chroma_db/
+*.sqlite
+*.sqlite3
+*.db
+*.pkl
+
+# Testing & Logs
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# IDE
+.vscode/
+.idea/
