@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, type ReactNode } from 'react';
-import type { Citation, UserProfile, Workspace } from '../types';
-import { INITIAL_USER, INITIAL_WORKSPACES } from '../api/mockData';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import type { Citation, UserProfile, Workspace, Subject } from '../types';
+import { INITIAL_USER, INITIAL_WORKSPACES, INITIAL_SUBJECTS } from '../api/mockData';
+import { apiClient } from '../api/client';
 
 export type AppView = 'signup' | 'login' | 'setup' | 'workspace' | 'chat' | 'materials' | 'settings' | 'profile';
 
@@ -9,6 +10,16 @@ interface AppContextType {
   setCurrentView: (view: AppView) => void;
   user: UserProfile;
   setUser: React.Dispatch<React.SetStateAction<UserProfile>>;
+  
+  // Curriculum Subjects (CS8591, UI/UX, BDA, etc.)
+  subjects: Subject[];
+  currentSubject: Subject;
+  setCurrentSubject: (subj: Subject) => void;
+  reloadSubjects: () => Promise<void>;
+  isAddSubjectModalOpen: boolean;
+  setIsAddSubjectModalOpen: (open: boolean) => void;
+
+  // Workspace backward-compatibility
   workspaces: Workspace[];
   currentWorkspace: Workspace;
   setCurrentWorkspace: (ws: Workspace) => void;
@@ -37,6 +48,11 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentView, setCurrentView] = useState<AppView>('signup');
   const [user, setUser] = useState<UserProfile>(INITIAL_USER);
+  const [subjects, setSubjects] = useState<Subject[]>(INITIAL_SUBJECTS);
+  const [currentSubject, setCurrentSubject] = useState<Subject>(INITIAL_SUBJECTS[0]);
+  const [isAddSubjectModalOpen, setIsAddSubjectModalOpen] = useState(false);
+
+  // Legacy workspace support mapped to subjects
   const [workspaces] = useState<Workspace[]>(INITIAL_WORKSPACES);
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace>(INITIAL_WORKSPACES[0]);
 
@@ -49,8 +65,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [errorInfo, setErrorInfo] = useState<{ title: string; message: string; details?: string }>({
     title: 'Authentication Error',
     message: 'Primary API key rate limit exceeded or quota exhausted.',
-    details: 'Provider response: HTTP 429 Too Many Requests (Rate limit reached for model gpt-4o). Automatic fallback engaged.',
+    details: 'Provider response: HTTP 429 Too Many Requests. Automatic fallback engaged.',
   });
+
+  const loadSubjects = async () => {
+    try {
+      const data = await apiClient.getSubjects();
+      if (data && data.length > 0) {
+        setSubjects(data);
+        if (!currentSubject || !data.some(s => s.subject_id === currentSubject.subject_id)) {
+          setCurrentSubject(data[0]);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not load subjects from API:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadSubjects();
+  }, []);
 
   const showError = (title: string, message: string, details?: string) => {
     setErrorInfo({ title, message, details });
@@ -64,6 +98,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setCurrentView,
         user,
         setUser,
+        subjects,
+        currentSubject,
+        setCurrentSubject,
+        reloadSubjects: loadSubjects,
+        isAddSubjectModalOpen,
+        setIsAddSubjectModalOpen,
         workspaces,
         currentWorkspace,
         setCurrentWorkspace,

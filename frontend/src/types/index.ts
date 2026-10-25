@@ -112,6 +112,16 @@ export interface UserProfile {
   activeVectorsCount: number;
 }
 
+export interface Subject {
+  subject_id: string;
+  code: string;
+  name: string;
+  department: string;
+  semester: number;
+  textbook_ids: string[];
+  description?: string;
+}
+
 export interface Workspace {
   id: string;
   name: string;

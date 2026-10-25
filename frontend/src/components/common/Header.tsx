@@ -8,9 +8,10 @@ export const Header: React.FC = () => {
     currentView,
     setCurrentView,
     user,
-    currentWorkspace,
-    workspaces,
-    setCurrentWorkspace,
+    subjects,
+    currentSubject,
+    setCurrentSubject,
+    setIsAddSubjectModalOpen,
     isDocDrawerOpen,
     setIsDocDrawerOpen,
     isSidebarOpen,
@@ -19,7 +20,7 @@ export const Header: React.FC = () => {
   const { settings, updateSettings } = useSettings();
   const { messages } = useChat();
 
-  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
+  const [isSubjectMenuOpen, setIsSubjectMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const isAuthView = currentView === 'signup' || currentView === 'login' || currentView === 'setup' || currentView === 'workspace';
@@ -30,7 +31,7 @@ export const Header: React.FC = () => {
 
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-surface/90 backdrop-blur-xl border-b border-surface-container-high z-40 px-3 sm:px-space-lg flex items-center justify-between gap-2 transition-all duration-300">
-      {/* Left section: Hamburger (on mobile / collapsed) + App Brand + Workspace Switcher */}
+      {/* Left section: Hamburger (on mobile / collapsed) + App Brand + Subject Switcher */}
       <div className="flex items-center gap-2 sm:gap-space-md min-w-0">
         {/* Mobile / Toggle Hamburger button for sidebar (only when logged in) */}
         {!isAuthView && (
@@ -58,7 +59,7 @@ export const Header: React.FC = () => {
               Aether AI
             </span>
             <span className="text-[11px] font-label text-on-surface-variant leading-none">
-              Textbook &amp; Study AI
+              Anna Univ Study Assistant
             </span>
           </div>
         </div>
@@ -66,55 +67,82 @@ export const Header: React.FC = () => {
         {/* Divider */}
         {!isAuthView && <span className="hidden sm:inline w-px h-5 bg-outline-variant/40" />}
 
-        {/* Workspace Switcher */}
+        {/* Curriculum Subject Switcher (Replaces Active Workspace) */}
         {!isAuthView && (
           <div className="relative">
             <button
-              onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
-              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-space-sm py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-label text-xs font-medium transition-colors max-w-[130px] sm:max-w-[200px]"
+              onClick={() => setIsSubjectMenuOpen(!isSubjectMenuOpen)}
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface font-label text-xs font-semibold transition-colors max-w-[160px] sm:max-w-[260px] border border-outline-variant/30"
+              title="Change Curriculum Subject"
             >
-              <span className="material-symbols-outlined text-[16px] text-primary flex-shrink-0">domain</span>
-              <span className="truncate">{currentWorkspace.name}</span>
+              <span className="material-symbols-outlined text-[17px] text-primary flex-shrink-0">school</span>
+              <span className="truncate">{currentSubject ? `${currentSubject.code} — ${currentSubject.name}` : 'Select Subject'}</span>
               <span className="material-symbols-outlined text-[16px] text-on-surface-variant flex-shrink-0">
                 expand_more
               </span>
             </button>
 
-            {isWorkspaceMenuOpen && (
-              <div className="absolute left-0 mt-1.5 w-64 bg-surface-container-lowest rounded-xl shadow-xl border border-outline-variant/30 py-1 z-50 animate-in fade-in slide-in-from-top-1">
-                <div className="px-3 py-1.5 text-[10px] font-label uppercase tracking-wider text-outline border-b border-surface-container">
-                  Switch Active Workspace
+            {isSubjectMenuOpen && (
+              <div className="absolute left-0 mt-1.5 w-72 bg-surface-container-lowest rounded-xl shadow-xl border border-outline-variant/30 py-1 z-50 animate-in fade-in slide-in-from-top-1">
+                <div className="px-3 py-1.5 text-[10px] font-label uppercase tracking-wider text-outline border-b border-surface-container flex items-center justify-between">
+                  <span>Curriculum Subject (Reg 2021)</span>
+                  <span className="font-mono text-[9px]">{subjects.length} courses</span>
                 </div>
-                {workspaces.map((ws) => (
-                  <button
-                    key={ws.id}
-                    onClick={() => {
-                      setCurrentWorkspace(ws);
-                      setIsWorkspaceMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs font-label hover:bg-surface-container transition-colors ${
-                      currentWorkspace.id === ws.id ? 'bg-primary/10 text-primary font-semibold' : 'text-on-surface'
-                    }`}
-                  >
-                    <span className="truncate">{ws.name}</span>
-                    <span className="text-[10px] font-mono text-outline">{ws.documentsCount} docs</span>
-                  </button>
-                ))}
-                <div className="border-t border-surface-container mt-1 pt-1">
-                  <button
-                    onClick={() => {
-                      setIsWorkspaceMenuOpen(false);
-                      setCurrentView('materials');
-                    }}
-                    className="w-full flex items-center gap-1 px-3 py-1.5 text-[11px] font-label text-primary hover:bg-surface-container"
-                  >
-                    <span className="material-symbols-outlined text-[14px]">folder_open</span>
-                    View Workspace Materials
-                  </button>
+                <div className="max-h-60 overflow-y-auto py-1">
+                  {subjects.map((subj) => (
+                    <button
+                      key={subj.subject_id}
+                      onClick={() => {
+                        setCurrentSubject(subj);
+                        setIsSubjectMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-left text-xs font-label hover:bg-surface-container transition-colors ${
+                        currentSubject?.subject_id === subj.subject_id
+                          ? 'bg-primary/10 text-primary font-semibold'
+                          : 'text-on-surface'
+                      }`}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="font-bold truncate">{subj.code} — {subj.name}</div>
+                        <div className="text-[10px] text-outline truncate">{subj.department} • Semester {subj.semester}</div>
+                      </div>
+                      {currentSubject?.subject_id === subj.subject_id && (
+                        <span className="material-symbols-outlined text-[16px] text-primary flex-shrink-0">check</span>
+                      )}
+                    </button>
+                  ))}
                 </div>
+
+                {/* Admin Add Subject Button (Strictly Restricted to Admin) */}
+                {user.role === 'admin' && (
+                  <div className="border-t border-surface-container p-1">
+                    <button
+                      onClick={() => {
+                        setIsSubjectMenuOpen(false);
+                        setIsAddSubjectModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-label text-purple-700 dark:text-purple-300 font-bold bg-purple-500/10 hover:bg-purple-500/20 rounded-lg transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                      <span>+ Add Subject (UI/UX, BDA...)</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
+        )}
+
+        {/* Direct Admin Quick-Add Subject Button */}
+        {user.role === 'admin' && !isAuthView && (
+          <button
+            onClick={() => setIsAddSubjectModalOpen(true)}
+            className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-xs font-label font-bold transition-all"
+            title="Admin: Add Curriculum Subject"
+          >
+            <span className="material-symbols-outlined text-[15px]">add</span>
+            <span>Subject</span>
+          </button>
         )}
       </div>
 

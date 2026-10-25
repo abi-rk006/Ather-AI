@@ -126,16 +126,38 @@ class FirestoreService:
 
     # 2. Subjects
     async def list_subjects(self) -> List[Subject]:
+        subjects_map = {k: Subject(**v) for k, v in self._mem_subjects.items()}
         db = get_firestore_client()
         if db:
             try:
                 docs = db.collection("subjects").stream()
-                items = [Subject(**d.to_dict()) for d in docs]
-                if items:
-                    return items
+                for d in docs:
+                    s = Subject(**d.to_dict())
+                    subjects_map[s.subject_id] = s
             except Exception as e:
                 logger.warning(f"Firestore list_subjects error ({e}), using default catalog.")
-        return [Subject(**data) for data in self._mem_subjects.values()]
+        return list(subjects_map.values())
+
+    async def save_subject(self, subject: Subject) -> Subject:
+        db = get_firestore_client()
+        data = subject.model_dump(mode="json")
+        if db:
+            try:
+                db.collection("subjects").document(subject.subject_id).set(data)
+            except Exception as e:
+                logger.warning(f"Firestore save_subject error ({e}), saving to memory store.")
+        self._mem_subjects[subject.subject_id] = data
+        return subject
+
+    async def delete_subject(self, subject_id: str) -> bool:
+        db = get_firestore_client()
+        if db:
+            try:
+                db.collection("subjects").document(subject_id).delete()
+            except Exception as e:
+                logger.warning(f"Firestore delete_subject error ({e}).")
+        self._mem_subjects.pop(subject_id, None)
+        return True
 
     # 3. Documents
     async def list_documents(self, user_id: str) -> List[DocumentMetadata]:

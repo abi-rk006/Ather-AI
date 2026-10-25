@@ -98,3 +98,50 @@ def test_student_personal_document_isolation():
     # Student A CAN delete their own document
     del_res_a = client.delete(f"/api/documents/{doc_a['document_id']}", headers=student_a_headers)
     assert del_res_a.status_code == 200
+
+
+def test_student_cannot_add_subject():
+    student_headers = {"Authorization": "Bearer student_user_token"}
+    payload = {
+        "code": "CS3001",
+        "name": "UI/UX Design",
+        "department": "CSE",
+        "semester": 6,
+    }
+    res = client.post("/api/subjects", headers=student_headers, json=payload)
+    assert res.status_code == 403
+    assert "Only administrators" in res.json()["detail"]
+
+
+def test_admin_can_add_subject():
+    admin_headers = {"Authorization": "Bearer admin_session_auth_token"}
+    payload_uiux = {
+        "code": "CS3001",
+        "name": "UI/UX Design",
+        "department": "CSE",
+        "semester": 6,
+        "description": "User experience principles, design systems, and usability heuristics.",
+    }
+    res_uiux = client.post("/api/subjects", headers=admin_headers, json=payload_uiux)
+    assert res_uiux.status_code == 201
+    assert res_uiux.json()["code"] == "CS3001"
+    assert res_uiux.json()["name"] == "UI/UX Design"
+
+    payload_bda = {
+        "code": "CCS334",
+        "name": "Big Data Analytics (BDA)",
+        "department": "IT",
+        "semester": 7,
+        "description": "Hadoop ecosystem, Spark processing, and MapReduce analytics.",
+    }
+    res_bda = client.post("/api/subjects", headers=admin_headers, json=payload_bda)
+    assert res_bda.status_code == 201
+    assert res_bda.json()["name"] == "Big Data Analytics (BDA)"
+
+    # Student can view both added subjects
+    student_headers = {"Authorization": "Bearer student_user_token"}
+    res_list = client.get("/api/subjects", headers=student_headers)
+    assert res_list.status_code == 200
+    subject_names = [s["name"] for s in res_list.json()]
+    assert "UI/UX Design" in subject_names
+    assert "Big Data Analytics (BDA)" in subject_names

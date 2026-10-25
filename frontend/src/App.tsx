@@ -7,6 +7,7 @@ import { SettingsProvider } from './context/SettingsContext';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { ErrorModal } from './components/common/ErrorModal';
+import { AddSubjectModal } from './components/common/AddSubjectModal';
 
 import { SignUpView } from './components/auth/SignUpView';
 import { SetupProfileWizard } from './components/auth/SetupProfileWizard';
@@ -48,8 +49,9 @@ const MainLayout: React.FC = () => {
         </main>
       </div>
 
-      {/* Global Error Modal Dialog */}
+      {/* Global Modals */}
       <ErrorModal />
+      <AddSubjectModal />
     </div>
   );
 };

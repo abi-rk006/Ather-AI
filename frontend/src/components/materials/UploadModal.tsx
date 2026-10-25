@@ -4,7 +4,7 @@ import { useMaterials } from '../../context/MaterialsContext';
 import type { MaterialDocument } from '../../types';
 
 export const UploadModal: React.FC = () => {
-  const { isUploadModalOpen, setIsUploadModalOpen, user } = useApp();
+  const { isUploadModalOpen, setIsUploadModalOpen, user, subjects, currentSubject } = useApp();
   const { uploadDocument } = useMaterials();
 
   const isAdmin = user.role === 'admin';
@@ -15,7 +15,7 @@ export const UploadModal: React.FC = () => {
     isAdmin ? 'primary_textbook' : 'student_document'
   );
   const [bookTitle, setBookTitle] = useState('');
-  const [subjectId, setSubjectId] = useState('cs8591');
+  const [subjectId, setSubjectId] = useState(currentSubject?.subject_id || (subjects[0]?.subject_id ?? 'cs8591'));
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
@@ -293,11 +293,11 @@ export const UploadModal: React.FC = () => {
                 onChange={(e) => setSubjectId(e.target.value)}
                 className="px-space-md py-2.5 rounded-xl bg-surface-container-low text-on-surface font-label text-xs outline-none border border-outline-variant/30 cursor-pointer"
               >
-                <option value="cs8591">CS8591 - Computer Networks (Sem 5)</option>
-                <option value="it8501">IT8501 - Web Technology (Sem 5)</option>
-                <option value="cs8492">CS8492 - DBMS (Sem 4)</option>
-                <option value="cs3391">CS3391 - DBMS Reg 2021 (Sem 4)</option>
-                <option value="ad3391">AD3391 - Database Design AIDS (Sem 3)</option>
+                {subjects.map((s) => (
+                  <option key={s.subject_id} value={s.subject_id}>
+                    {s.code} - {s.name} (Sem {s.semester})
+                  </option>
+                ))}
               </select>
             </div>
 

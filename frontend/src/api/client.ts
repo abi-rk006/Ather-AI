@@ -8,6 +8,7 @@ import type {
   ExamMarksFormat,
   RetrievalSearchRequest,
   RetrievalSearchResponse,
+  Subject,
 } from '../types';
 import { INITIAL_SETTINGS } from './mockData';
 
@@ -283,6 +284,55 @@ class ApiClient {
     const current = await this.getDocuments();
     const filtered = current.filter((d) => d.id !== id);
     localStorage.setItem('ather_materials', JSON.stringify(filtered));
+  }
+
+  // Curriculum Subjects API
+  async getSubjects(): Promise<Subject[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/subjects`, {
+        headers: this.getAuthHeaders(),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (err) {
+      console.warn('Error fetching curriculum subjects:', err);
+    }
+
+    return [
+      { subject_id: 'cs8591', code: 'CS8591', name: 'Computer Networks', department: 'CSE', semester: 5, textbook_ids: [] },
+      { subject_id: 'it8501', code: 'IT8501', name: 'Web Technology', department: 'IT', semester: 5, textbook_ids: [] },
+      { subject_id: 'cs8492', code: 'CS8492', name: 'Database Management Systems', department: 'CSE', semester: 4, textbook_ids: [] },
+      { subject_id: 'cs3001', code: 'CS3001', name: 'UI/UX Design', department: 'CSE', semester: 6, textbook_ids: [] },
+      { subject_id: 'ccs334', code: 'CCS334', name: 'Big Data Analytics (BDA)', department: 'IT', semester: 7, textbook_ids: [] },
+    ];
+  }
+
+  async createSubject(data: { code: string; name: string; department?: string; semester?: number; description?: string }): Promise<Subject> {
+    const res = await fetch(`${API_BASE_URL}/subjects`, {
+      method: 'POST',
+      headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to create subject' }));
+      throw new Error(err.detail || `Error creating subject (${res.status})`);
+    }
+
+    return await res.json();
+  }
+
+  async deleteSubject(subjectId: string): Promise<void> {
+    const res = await fetch(`${API_BASE_URL}/subjects/${subjectId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to delete subject' }));
+      throw new Error(err.detail || `Error deleting subject (${res.status})`);
+    }
   }
 
   // Settings API
