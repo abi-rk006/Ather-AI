@@ -59,6 +59,8 @@ backend/storage_uploads/
 storage_uploads/
 backend/chroma_db/
 chroma_db/
+qdrant_storage/
+backend/qdrant_storage/
 *.sqlite
 *.sqlite3
 *.db

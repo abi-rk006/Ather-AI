@@ -1,5 +1,6 @@
 import json
-from typing import List, Union
+import os
+from typing import List, Union, Optional
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,7 +27,16 @@ class Settings(BaseSettings):
     JINA_EMBEDDING_DIMENSIONS: int = 1024
     JINA_URL: str = "https://api.jina.ai/v1/embeddings"
 
-    # Chroma Cloud Managed Vector Database
+    # Vector Store Provider ("qdrant" or "chroma")
+    VECTOR_STORE_PROVIDER: str = "qdrant"
+
+    # Qdrant Vector Database (Docker container on port 6333 or Qdrant Cloud)
+    QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_CLUSTER_ENDPOINT: Optional[str] = None
+    QDRANT_API_KEY: Optional[str] = ""
+    QDRANT_COLLECTION_NAME: str = "anna_university_child_chunks_v1"
+
+    # Chroma Cloud Managed Vector Database (Optional Fallback)
     CHROMA_HOST: str = "api.trychroma.com"
     CHROMA_API_KEY: str = "your_chroma_cloud_api_key"
     CHROMA_TENANT: str = "your_tenant_id"
@@ -44,7 +54,10 @@ class Settings(BaseSettings):
         return v
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"),
+            ".env",
+        ),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
