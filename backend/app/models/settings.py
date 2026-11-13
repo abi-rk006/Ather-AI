@@ -17,8 +17,11 @@ class UserPreferences(BaseModel):
     defaultSearchScope: SearchScope = "textbook_and_materials"
     defaultExamMarksFormat: ExamMarksFormat = "13-mark"
     theme: Literal["light", "dark", "system"] = "system"
-    selectedModel: str = "claude-3-5-sonnet"
+    selectedModel: str = "llama-3.3-70b-versatile"
     temperature: float = 0.2
+    llmProvider: str = "groq"
+    llmBaseUrl: str = "https://api.groq.com/openai/v1"
+    llmApiKey: Optional[str] = None
     retrieval: RetrievalSettingsModel = Field(default_factory=RetrievalSettingsModel)
 
 
@@ -29,4 +32,7 @@ class UserPreferencesUpdate(BaseModel):
     theme: Optional[Literal["light", "dark", "system"]] = None
     selectedModel: Optional[str] = None
     temperature: Optional[float] = None
+    llmProvider: Optional[str] = None
+    llmBaseUrl: Optional[str] = None
+    llmApiKey: Optional[str] = None
     retrieval: Optional[RetrievalSettingsModel] = None

@@ -98,13 +98,25 @@ class ApiClient {
     searchScope: SearchScope = 'textbook_and_materials',
     history: Message[] = [],
     examMarksFormat: ExamMarksFormat = '13-mark',
-    onChunk?: (token: string) => void
+    onChunk?: (token: string) => void,
+    llmConfig?: { provider?: string; endpoint?: string; apiKey?: string; model?: string; temperature?: number }
   ): Promise<{ response: string; citations: Citation[]; telemetry: { tokens: number; tps: number; ttft: string } }> {
     try {
       const res = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ prompt, answeringMode, searchScope, examMarksFormat, history }),
+        body: JSON.stringify({
+          prompt,
+          answeringMode,
+          searchScope,
+          examMarksFormat,
+          history,
+          llmProvider: llmConfig?.provider,
+          llmEndpoint: llmConfig?.endpoint,
+          llmApiKey: llmConfig?.apiKey,
+          llmModel: llmConfig?.model,
+          temperature: llmConfig?.temperature,
+        }),
       });
       if (res.ok) {
         return await res.json();
@@ -182,14 +194,6 @@ class ApiClient {
       console.warn('Error fetching live documents:', err);
     }
 
-    const saved = localStorage.getItem('ather_materials');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        // fallback
-      }
-    }
     return [];
   }
 
@@ -211,79 +215,43 @@ class ApiClient {
       formData.append('book_title', bookTitle);
     }
 
-    try {
-      const res = await fetch(`${API_BASE_URL}/documents`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: formData,
-      });
+    const res = await fetch(`${API_BASE_URL}/documents`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: formData,
+    });
 
-      if (res.ok) {
-        const d = await res.json();
-        return {
-          id: d.document_id,
-          title: d.filename,
-          fileType: d.file_type,
-          category: d.category,
-          sourceType: d.source_type,
-          ownerId: d.owner_id,
-          sizeBytes: d.size_bytes,
-          uploadedAt: 'Just now',
-          chunkCount: d.chunk_count,
-          parentChunkCount: d.parent_chunk_count,
-          vectorStatus: 'indexed',
-          vectorDimensions: 1024,
-          summary: d.summary,
-        };
-      }
-      const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
-      throw new Error(err.detail || `Upload failed with status ${res.status}`);
-    } catch (err: any) {
-      console.warn('Backend upload failed, caching locally:', err);
-      // If error is permission-related, rethrow
-      if (err?.message?.includes('Only administrators') || err?.message?.includes('403')) {
-        throw err;
-      }
+    if (res.ok) {
+      const d = await res.json();
+      return {
+        id: d.document_id,
+        title: d.filename,
+        fileType: d.file_type,
+        category: d.category,
+        sourceType: d.source_type,
+        ownerId: d.owner_id,
+        sizeBytes: d.size_bytes,
+        uploadedAt: 'Just now',
+        chunkCount: d.chunk_count,
+        parentChunkCount: d.parent_chunk_count,
+        vectorStatus: 'indexed',
+        vectorDimensions: 1024,
+        summary: d.summary,
+      };
     }
-
-    // Local fallback if backend unavailable
-    const newDoc: MaterialDocument = {
-      id: `doc-${Date.now()}`,
-      title: bookTitle || file.name,
-      fileType: (file.name.split('.').pop() as any) || 'pdf',
-      category: category || 'distributed',
-      sourceType: sourceType,
-      ownerId: sourceType === 'primary_textbook' ? 'system' : 'dev_student',
-      sizeBytes: file.size,
-      uploadedAt: 'Just now',
-      chunkCount: 1,
-      parentChunkCount: 1,
-      vectorStatus: 'indexed',
-      vectorDimensions: 1024,
-      summary: sourceType === 'primary_textbook'
-        ? `Predefined Curriculum Textbook: ${file.name}`
-        : `Personal Material (${file.name}).`,
-    };
-
-    const current = await this.getDocuments();
-    const updated = [newDoc, ...current];
-    localStorage.setItem('ather_materials', JSON.stringify(updated));
-    return newDoc;
+    const err = await res.json().catch(() => ({ detail: 'Upload failed' }));
+    throw new Error(err.detail || `Upload failed with status ${res.status}`);
   }
 
   async deleteDocument(id: string): Promise<void> {
-    try {
-      await fetch(`${API_BASE_URL}/documents/${id}`, {
-        method: 'DELETE',
-        headers: this.getAuthHeaders(),
-      });
-    } catch (err) {
-      console.warn('Error deleting live document:', err);
+    const res = await fetch(`${API_BASE_URL}/documents/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to delete document' }));
+      throw new Error(err.detail || `Failed to delete document (${res.status})`);
     }
-
-    const current = await this.getDocuments();
-    const filtered = current.filter((d) => d.id !== id);
-    localStorage.setItem('ather_materials', JSON.stringify(filtered));
   }
 
   // Curriculum Subjects API
@@ -299,13 +267,7 @@ class ApiClient {
       console.warn('Error fetching curriculum subjects:', err);
     }
 
-    return [
-      { subject_id: 'cs8591', code: 'CS8591', name: 'Computer Networks', department: 'CSE', semester: 5, textbook_ids: [] },
-      { subject_id: 'it8501', code: 'IT8501', name: 'Web Technology', department: 'IT', semester: 5, textbook_ids: [] },
-      { subject_id: 'cs8492', code: 'CS8492', name: 'Database Management Systems', department: 'CSE', semester: 4, textbook_ids: [] },
-      { subject_id: 'cs3001', code: 'CS3001', name: 'UI/UX Design', department: 'CSE', semester: 6, textbook_ids: [] },
-      { subject_id: 'ccs334', code: 'CCS334', name: 'Big Data Analytics (BDA)', department: 'IT', semester: 7, textbook_ids: [] },
-    ];
+    return [];
   }
 
   async createSubject(data: { code: string; name: string; department?: string; semester?: number; description?: string }): Promise<Subject> {
@@ -352,11 +314,42 @@ class ApiClient {
     localStorage.setItem('ather_settings', JSON.stringify(settings));
   }
 
-  async verifyApiKey(key: string, _provider?: string): Promise<{ success: boolean; latencyMs: number }> {
-    await new Promise((r) => setTimeout(r, 200));
+  async testLlmEndpoint(
+    provider: string,
+    baseUrl: string,
+    apiKey: string,
+    model: string
+  ): Promise<{ success: boolean; latencyMs: number; message: string; modelsAvailable?: string[] }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/settings/test-llm`, {
+        method: 'POST',
+        headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ provider, baseUrl, apiKey, model }),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+      const err = await res.json().catch(() => ({ message: `Error ${res.status}` }));
+      return {
+        success: false,
+        latencyMs: 0,
+        message: err.message || `Test failed with status ${res.status}`,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        latencyMs: 0,
+        message: err?.message || 'Could not connect to backend test service.',
+      };
+    }
+  }
+
+  async verifyApiKey(key: string, provider: string = 'groq', baseUrl?: string, model?: string): Promise<{ success: boolean; latencyMs: number; message?: string }> {
+    const res = await this.testLlmEndpoint(provider, baseUrl || '', key, model || 'llama-3.3-70b-versatile');
     return {
-      success: key.length > 8,
-      latencyMs: Math.floor(Math.random() * 20 + 40),
+      success: res.success,
+      latencyMs: res.latencyMs,
+      message: res.message,
     };
   }
 }

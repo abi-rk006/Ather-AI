@@ -83,7 +83,11 @@ export interface RetrievalSettings {
   chunkOverlap: number;
 }
 
+export type LLMProvider = 'groq' | 'lmstudio' | 'ollama' | 'custom' | 'openai' | 'gemini' | 'anthropic';
+
 export interface AppSettings {
+  llmProvider: LLMProvider;
+  llmBaseUrl: string;
   primaryApiKey: string;
   secondaryApiKey: string;
   fallbackEnabled: boolean;
@@ -145,6 +149,8 @@ export interface RetrievalResultItem {
   chunk_id: string;
   rank: number;
   rrf_score: number;
+  relevance_score?: number;
+  rerank_model?: string;
   text: string;
   parent_id?: string;
   parent_text?: string;

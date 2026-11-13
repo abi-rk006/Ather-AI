@@ -1,67 +1,141 @@
 import React, { useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useApp } from '../../context/AppContext';
+import type { LLMProvider } from '../../types';
 
 export const SettingsView: React.FC = () => {
   const { settings, updateSettings, saveSettings, resetSettings, testConnection, isSaved } = useSettings();
   const { isSidebarOpen } = useApp();
 
   const [showPrimaryKey, setShowPrimaryKey] = useState(false);
-  const [showSecondaryKey, setShowSecondaryKey] = useState(false);
   const [isTestingPrimary, setIsTestingPrimary] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string; latencyMs?: number } | null>(null);
+  const [customModelInput, setCustomModelInput] = useState(false);
 
-  const handleTestPrimary = async () => {
+  const presets: { id: LLMProvider; label: string; icon: string; url: string; defaultModel: string; note: string }[] = [
+    {
+      id: 'groq',
+      label: 'Groq Cloud',
+      icon: 'bolt',
+      url: 'https://api.groq.com/openai/v1',
+      defaultModel: 'llama-3.3-70b-versatile',
+      note: 'Ultra-fast cloud LPU inference (>250 tokens/sec)',
+    },
+    {
+      id: 'lmstudio',
+      label: 'Local LM Studio',
+      icon: 'laptop_mac',
+      url: 'http://localhost:1234/v1',
+      defaultModel: 'local-model',
+      note: 'Runs on localhost:1234 in LM Studio (100% offline & private)',
+    },
+    {
+      id: 'ollama',
+      label: 'Local Ollama',
+      icon: 'terminal',
+      url: 'http://localhost:11434/v1',
+      defaultModel: 'llama3.2',
+      note: 'Runs locally on port 11434 via Ollama daemon',
+    },
+    {
+      id: 'custom',
+      label: 'Remote / Custom URL',
+      icon: 'link',
+      url: 'http://localhost:1234/v1',
+      defaultModel: 'local-model',
+      note: 'Any HTTP or HTTPS link of an LLM running on another machine',
+    },
+    {
+      id: 'openai',
+      label: 'OpenAI',
+      icon: 'psychology',
+      url: 'https://api.openai.com/v1',
+      defaultModel: 'gpt-4o',
+      note: 'Official OpenAI API (GPT-4o, GPT-4o-mini)',
+    },
+    {
+      id: 'gemini',
+      label: 'Google Gemini',
+      icon: 'auto_awesome',
+      url: 'https://generativelanguage.googleapis.com/v1beta/openai',
+      defaultModel: 'gemini-2.0-flash',
+      note: 'Gemini 2.0 Flash / 1.5 Pro via OpenAI API endpoint',
+    },
+  ];
+
+  const modelOptionsByProvider: Record<LLMProvider, { label: string; value: string }[]> = {
+    groq: [
+      { label: 'Llama 3.3 70B Versatile (Recommended - 128k context)', value: 'llama-3.3-70b-versatile' },
+      { label: 'Llama 3.1 8B Instant (Ultra-fast - 128k context)', value: 'llama-3.1-8b-instant' },
+      { label: 'DeepSeek R1 Distill Llama 70B', value: 'deepseek-r1-distill-llama-70b' },
+      { label: 'Mixtral 8x7B (32k context)', value: 'mixtral-8x7b-32768' },
+    ],
+    lmstudio: [
+      { label: 'local-model (Active model loaded in LM Studio)', value: 'local-model' },
+      { label: 'llama-3.2-3b-instruct', value: 'llama-3.2-3b-instruct' },
+      { label: 'mistral-7b-instruct', value: 'mistral-7b-instruct' },
+      { label: 'qwen2.5-coder-7b', value: 'qwen2.5-coder-7b' },
+    ],
+    ollama: [
+      { label: 'llama3.2 (Meta Llama 3.2)', value: 'llama3.2' },
+      { label: 'mistral (Mistral 7B)', value: 'mistral' },
+      { label: 'deepseek-r1:8b', value: 'deepseek-r1:8b' },
+      { label: 'qwen2.5:7b', value: 'qwen2.5:7b' },
+    ],
+    openai: [
+      { label: 'GPT-4o (Omni - Flagship Multimodal)', value: 'gpt-4o' },
+      { label: 'GPT-4o-mini (Lightweight & Fast)', value: 'gpt-4o-mini' },
+      { label: 'o3-mini (High-reasoning STEM)', value: 'o3-mini' },
+    ],
+    gemini: [
+      { label: 'Gemini 2.0 Flash (Fastest Next-Gen)', value: 'gemini-2.0-flash' },
+      { label: 'Gemini 1.5 Pro (1M+ Context)', value: 'gemini-1.5-pro' },
+      { label: 'Gemini 1.5 Flash (Balanced)', value: 'gemini-1.5-flash' },
+    ],
+    custom: [
+      { label: 'Custom Model (Specify below)', value: settings.selectedModel || 'custom-model' },
+    ],
+    anthropic: [
+      { label: 'Claude 3.5 Sonnet', value: 'claude-3-5-sonnet' },
+      { label: 'Claude 3.5 Haiku', value: 'claude-3-5-haiku' },
+    ],
+  };
+
+  const selectPreset = (p: typeof presets[0]) => {
+    updateSettings({
+      llmProvider: p.id,
+      llmBaseUrl: p.url,
+      selectedModel: p.defaultModel,
+    });
+    setTestResult(null);
+  };
+
+  const handleTestConnection = async () => {
     setIsTestingPrimary(true);
     setTestResult(null);
     try {
-      const res = await testConnection(settings.primaryApiKey, settings.selectedModel);
-      if (res.success) {
-        setTestResult(`Connection verified (${res.latencyMs}ms latency)`);
-      } else {
-        setTestResult('Verification failed: Key format invalid');
-      }
-    } catch {
-      setTestResult('Verification error: Endpoint unreachable');
+      const res = await testConnection(
+        settings.primaryApiKey,
+        settings.llmProvider,
+        settings.llmBaseUrl,
+        settings.selectedModel
+      );
+      setTestResult({
+        success: res.success,
+        message: res.message || (res.success ? 'Connected successfully!' : 'Endpoint unreachable'),
+        latencyMs: res.latencyMs,
+      });
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        message: err?.message || 'Verification error: Endpoint unreachable',
+      });
     } finally {
       setIsTestingPrimary(false);
     }
   };
 
-  const getModelDetails = (modelKey: string) => {
-    switch (modelKey) {
-      case 'claude-3-5-sonnet':
-        return {
-          name: 'Claude 3.5 Sonnet',
-          provider: 'Anthropic',
-          context: '200k context',
-          desc: 'State-of-the-art coding, rigorous logical synthesis, and nuanced technical writing.',
-        };
-      case 'gemini-1-5-pro':
-        return {
-          name: 'Gemini 1.5 Pro',
-          provider: 'Google DeepMind',
-          context: '1M+ context',
-          desc: 'Unrivaled long-context audio, video, and multi-document technical ingestion.',
-        };
-      case 'llama-3-3-70b':
-        return {
-          name: 'Llama 3.3 70B',
-          provider: 'Meta Open Weights',
-          context: '128k context',
-          desc: 'Enterprise self-hosted inference with zero data retention and maximum privacy.',
-        };
-      default:
-        return {
-          name: 'GPT-4o (Omni)',
-          provider: 'OpenAI',
-          context: '128k context',
-          desc: 'Best for deep multimodal reasoning, fast tool execution, and code synthesis.',
-        };
-    }
-  };
-
-  const selectedModelInfo = getModelDetails(settings.selectedModel);
+  const isLocalProvider = settings.llmProvider === 'lmstudio' || settings.llmProvider === 'ollama';
 
   return (
     <div
@@ -71,39 +145,150 @@ export const SettingsView: React.FC = () => {
     >
       {/* Page Title */}
       <div>
-        <h1 className="font-headline text-2xl sm:text-3xl font-bold text-on-surface">Settings</h1>
+        <h1 className="font-headline text-2xl sm:text-3xl font-bold text-on-surface">LLM Provider &amp; Model Settings</h1>
         <p className="font-body text-xs sm:text-sm text-on-surface-variant mt-1">
-          Manage API keys, fallback inference providers, and hybrid RAG retrieval parameters.
+          Configure inference providers: choose Groq, local models via LM Studio or Ollama on localhost, or custom remote endpoints.
         </p>
       </div>
 
-      {/* Section 1: API Keys & Failover Configuration */}
+      {/* Section 1: LLM Provider & Inference Endpoint */}
       <section className="p-space-md sm:p-space-lg rounded-2xl bg-surface-container-lowest shadow-sm border border-outline-variant/20 flex flex-col gap-space-md">
         <div className="flex items-center justify-between pb-space-xs border-b border-surface-container">
           <div className="flex items-center gap-space-sm">
             <div className="w-9 h-9 rounded-xl bg-primary-fixed flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-[20px]">key</span>
+              <span className="material-symbols-outlined text-[20px]">smart_toy</span>
             </div>
             <div>
               <h2 className="font-headline text-base font-bold text-on-surface">
-                API Keys &amp; Failover Config
+                LLM Provider Selection
               </h2>
               <p className="font-body text-xs text-on-surface-variant">
-                Configure primary inference key and optional automatic fallback key.
+                Select your LLM inference engine or connect to a local / remote server.
               </p>
             </div>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label text-[11px] font-semibold">
-            Active
+          <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-label text-[11px] font-semibold uppercase tracking-wide">
+            {settings.llmProvider || 'groq'}
           </span>
         </div>
 
-        {/* Primary API Key */}
-        <div className="flex flex-col gap-1.5">
+        {/* Quick Presets Grid */}
+        <div className="flex flex-col gap-2">
+          <label className="font-label text-xs font-semibold text-on-surface">Quick Provider Presets</label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {presets.map((p) => {
+              const isSelected = settings.llmProvider === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => selectPreset(p)}
+                  className={`p-3 rounded-xl border text-left transition-all flex flex-col gap-1 ${
+                    isSelected
+                      ? 'bg-primary/5 border-primary ring-2 ring-primary/20 shadow-xs'
+                      : 'bg-surface-container-low border-outline-variant/30 hover:bg-surface-container'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="material-symbols-outlined text-[20px] text-primary">{p.icon}</span>
+                    {isSelected && (
+                      <span className="w-2 h-2 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  <span className="font-label text-xs font-bold text-on-surface mt-1">{p.label}</span>
+                  <span className="text-[10px] text-outline line-clamp-1">{p.note}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Endpoint Base URL Input */}
+        <div className="flex flex-col gap-1.5 pt-1">
           <label className="font-label text-xs font-semibold text-on-surface flex items-center justify-between">
-            <span>Primary API Key (Required)</span>
-            {testResult && (
-              <span className="text-primary font-mono text-[11px] font-bold">{testResult}</span>
+            <span className="flex items-center gap-1.5">
+              <span>Inference Base URL (OpenAI-compatible)</span>
+              {isLocalProvider && (
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                  Localhost
+                </span>
+              )}
+            </span>
+            <span className="text-[11px] font-mono text-outline">
+              Target endpoint for /chat/completions
+            </span>
+          </label>
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              value={settings.llmBaseUrl || ''}
+              onChange={(e) => updateSettings({ llmBaseUrl: e.target.value })}
+              placeholder={
+                settings.llmProvider === 'lmstudio'
+                  ? 'http://localhost:1234/v1'
+                  : settings.llmProvider === 'ollama'
+                  ? 'http://localhost:11434/v1'
+                  : 'https://api.groq.com/openai/v1 or https://remote-server:1234/v1'
+              }
+              className="w-full pl-3.5 pr-28 py-2.5 rounded-xl bg-surface-container-low text-on-surface font-mono text-xs outline-none focus:ring-2 focus:ring-primary/20 border border-outline-variant/20"
+            />
+            <button
+              type="button"
+              onClick={handleTestConnection}
+              disabled={isTestingPrimary}
+              className="absolute right-2 px-3 py-1 rounded-lg bg-primary text-on-primary hover:bg-primary-container font-label text-xs font-semibold transition-all shadow-xs disabled:opacity-60"
+            >
+              {isTestingPrimary ? 'Testing...' : 'Test Connection'}
+            </button>
+          </div>
+
+          {/* Connection Test Output Banner */}
+          {testResult && (
+            <div
+              className={`p-2.5 rounded-xl text-xs font-mono flex items-start gap-2 border mt-1 ${
+                testResult.success
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-rose-50 text-rose-800 border-rose-200'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px] shrink-0 mt-0.5">
+                {testResult.success ? 'check_circle' : 'error'}
+              </span>
+              <div className="flex-1">
+                <span>{testResult.message}</span>
+                {testResult.latencyMs !== undefined && testResult.latencyMs > 0 && (
+                  <span className="ml-2 font-bold opacity-80">({testResult.latencyMs}ms response time)</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Context help text based on selected provider */}
+          <div className="text-[11px] text-outline flex items-center gap-1.5 mt-0.5">
+            <span className="material-symbols-outlined text-[14px]">info</span>
+            {settings.llmProvider === 'lmstudio' && (
+              <span>Start the local inference server in LM Studio on port <strong>1234</strong> (default: <code>http://localhost:1234/v1</code>).</span>
+            )}
+            {settings.llmProvider === 'ollama' && (
+              <span>Ensure Ollama is running in background (default: <code>http://localhost:11434/v1</code>).</span>
+            )}
+            {settings.llmProvider === 'groq' && (
+              <span>Powered by Groq Cloud LPU (<code>https://api.groq.com/openai/v1</code>). Ultra-fast syllabus generation.</span>
+            )}
+            {settings.llmProvider === 'custom' && (
+              <span>Enter any <code>http://...</code> or <code>https://...</code> endpoint of an LLM running on your local network or cloud node.</span>
+            )}
+          </div>
+        </div>
+
+        {/* Primary API Key */}
+        <div className="flex flex-col gap-1.5 pt-1">
+          <label className="font-label text-xs font-semibold text-on-surface flex items-center justify-between">
+            <span>
+              API Key {isLocalProvider ? '(Optional for Localhost / LM Studio)' : '(Required for Cloud Inference)'}
+            </span>
+            {isLocalProvider && (
+              <span className="text-[10px] text-outline font-medium">Local models typically don't require an API key</span>
             )}
           </label>
           <div className="relative flex items-center">
@@ -111,134 +296,82 @@ export const SettingsView: React.FC = () => {
               type={showPrimaryKey ? 'text' : 'password'}
               value={settings.primaryApiKey}
               onChange={(e) => updateSettings({ primaryApiKey: e.target.value })}
-              placeholder="sk-proj-..."
-              className="w-full pl-3.5 pr-24 py-2.5 rounded-xl bg-surface-container-low text-on-surface font-mono text-xs outline-none focus:ring-2 focus:ring-primary/20 border border-outline-variant/20"
-            />
-            <div className="absolute right-2 flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setShowPrimaryKey(!showPrimaryKey)}
-                className="p-1 rounded-lg text-outline hover:text-on-surface"
-              >
-                <span className="material-symbols-outlined text-[16px]">
-                  {showPrimaryKey ? 'visibility_off' : 'visibility'}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={handleTestPrimary}
-                disabled={isTestingPrimary}
-                className="px-2 py-1 rounded-lg bg-surface-container text-on-surface hover:text-primary font-label text-[11px] font-semibold transition-colors"
-              >
-                {isTestingPrimary ? 'Testing...' : 'Test'}
-              </button>
-            </div>
-          </div>
-          <span className="text-[11px] text-outline font-label">
-            Used as the primary inference provider across all prompt sessions.
-          </span>
-        </div>
-
-        {/* Secondary API Key (Fallback) */}
-        <div className="flex flex-col gap-1.5 pt-1">
-          <div className="flex items-center justify-between">
-            <label className="font-label text-xs font-semibold text-on-surface flex items-center gap-1.5">
-              <span>Secondary API Key (Fallback / Backup)</span>
-              <span className="px-1.5 py-0.2 rounded text-[10px] font-label bg-surface-container text-on-surface-variant font-medium">
-                Optional
-              </span>
-            </label>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label text-[10px]">
-              Standby Ready
-            </span>
-          </div>
-          <div className="relative flex items-center">
-            <input
-              type={showSecondaryKey ? 'text' : 'password'}
-              value={settings.secondaryApiKey}
-              onChange={(e) => updateSettings({ secondaryApiKey: e.target.value })}
-              placeholder="sk-ant-... (optional backup key)"
+              placeholder={isLocalProvider ? 'Not needed (leave blank or any text)' : 'gsk_... or sk-proj-...'}
               className="w-full pl-3.5 pr-12 py-2.5 rounded-xl bg-surface-container-low text-on-surface font-mono text-xs outline-none focus:ring-2 focus:ring-primary/20 border border-outline-variant/20"
             />
             <button
               type="button"
-              onClick={() => setShowSecondaryKey(!showSecondaryKey)}
+              onClick={() => setShowPrimaryKey(!showPrimaryKey)}
               className="absolute right-2.5 p-1 rounded-lg text-outline hover:text-on-surface"
             >
               <span className="material-symbols-outlined text-[16px]">
-                {showSecondaryKey ? 'visibility_off' : 'visibility'}
+                {showPrimaryKey ? 'visibility_off' : 'visibility'}
               </span>
             </button>
-          </div>
-          <div className="flex items-center gap-2 mt-1">
-            <input
-              type="checkbox"
-              id="fallback-toggle"
-              checked={settings.fallbackEnabled}
-              onChange={(e) => updateSettings({ fallbackEnabled: e.target.checked })}
-              className="w-4 h-4 rounded text-primary focus:ring-0 cursor-pointer accent-primary"
-            />
-            <label htmlFor="fallback-toggle" className="text-xs font-label text-on-surface cursor-pointer select-none">
-              Automatically fail over to secondary API key upon HTTP 429 rate limits or quota errors
-            </label>
           </div>
         </div>
       </section>
 
-      {/* Section 2: AI Model Selection & Sampling */}
+      {/* Section 2: Model Selection & Sampling Controls */}
       <section className="p-space-md sm:p-space-lg rounded-2xl bg-surface-container-lowest shadow-sm border border-outline-variant/20 flex flex-col gap-space-md">
         <div className="flex items-center justify-between pb-space-xs border-b border-surface-container">
           <div className="flex items-center gap-space-sm">
             <div className="w-9 h-9 rounded-xl bg-secondary-fixed flex items-center justify-center text-secondary">
-              <span className="material-symbols-outlined text-[20px]">smart_toy</span>
+              <span className="material-symbols-outlined text-[20px]">psychology</span>
             </div>
             <div>
-              <h2 className="font-headline text-base font-bold text-on-surface">AI Model Selection</h2>
+              <h2 className="font-headline text-base font-bold text-on-surface">Model Identifier &amp; Sampling</h2>
               <p className="font-body text-xs text-on-surface-variant">
-                Select your default LLM model and inference temperature.
+                Select or specify the model name to dispatch inference to.
               </p>
             </div>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label text-[11px] font-semibold">
-            Global Default
+          <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-bold">
+            {settings.selectedModel}
           </span>
         </div>
 
-        {/* Model dropdown */}
+        {/* Model dropdown / input */}
         <div className="flex flex-col gap-1.5">
-          <label className="font-label text-xs font-semibold text-on-surface">Default AI Model</label>
-          <select
-            value={settings.selectedModel}
-            onChange={(e) => updateSettings({ selectedModel: e.target.value })}
-            className="w-full px-space-md py-2.5 rounded-xl bg-surface-container-low text-on-surface font-label text-xs outline-none border border-outline-variant/30 cursor-pointer"
-          >
-            <option value="gpt-4o">GPT-4o (Omni) — Flagship Multimodal</option>
-            <option value="claude-3-5-sonnet">Claude 3.5 Sonnet — Advanced Synthesis &amp; Code</option>
-            <option value="gemini-1-5-pro">Gemini 1.5 Pro — Ultra Long-Context</option>
-            <option value="llama-3-3-70b">Llama 3.3 70B — Enterprise Self-Hosted</option>
-          </select>
-
-          {/* Model Card Preview */}
-          <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm border border-surface-container mt-1">
-            <div className="flex flex-col gap-1 min-w-0">
-              <div className="flex items-center gap-space-xs flex-wrap">
-                <span className="font-headline text-xs font-bold text-on-surface">
-                  {selectedModelInfo.name}
-                </span>
-                <span className="px-2 py-0.2 rounded-full bg-primary-fixed text-on-primary-fixed font-label text-[10px] font-semibold">
-                  {selectedModelInfo.provider}
-                </span>
-                <span className="px-2 py-0.2 rounded-full bg-surface-container text-on-surface-variant font-label text-[10px]">
-                  {selectedModelInfo.context}
-                </span>
-              </div>
-              <p className="font-body text-xs text-on-surface-variant">{selectedModelInfo.desc}</p>
-            </div>
-            <div className="flex items-center gap-1 text-primary text-xs font-label shrink-0">
-              <span className="material-symbols-outlined text-[16px]">check_circle</span>
-              <span>Verified Endpoint</span>
-            </div>
+          <div className="flex items-center justify-between">
+            <label className="font-label text-xs font-semibold text-on-surface">Target Model Name</label>
+            <button
+              type="button"
+              onClick={() => setCustomModelInput(!customModelInput)}
+              className="text-xs text-primary hover:underline font-label flex items-center gap-1"
+            >
+              <span className="material-symbols-outlined text-[14px]">edit</span>
+              <span>{customModelInput ? 'Select from list' : 'Type custom model name'}</span>
+            </button>
           </div>
+
+          {customModelInput ? (
+            <input
+              type="text"
+              value={settings.selectedModel}
+              onChange={(e) => updateSettings({ selectedModel: e.target.value })}
+              placeholder="e.g. llama-3.3-70b-versatile, local-model, qwen2.5-coder-7b..."
+              className="w-full px-space-md py-2.5 rounded-xl bg-surface-container-low text-on-surface font-mono text-xs outline-none border border-outline-variant/30"
+            />
+          ) : (
+            <select
+              value={settings.selectedModel}
+              onChange={(e) => updateSettings({ selectedModel: e.target.value })}
+              className="w-full px-space-md py-2.5 rounded-xl bg-surface-container-low text-on-surface font-label text-xs outline-none border border-outline-variant/30 cursor-pointer"
+            >
+              {(modelOptionsByProvider[settings.llmProvider] || modelOptionsByProvider.groq).map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <span className="text-[11px] text-outline font-label">
+            {settings.llmProvider === 'lmstudio'
+              ? 'For LM Studio, use "local-model" or the identifier shown in LM Studio\'s developer tab.'
+              : 'Sent in the payload `model` field to the LLM endpoint.'}
+          </span>
         </div>
 
         {/* Temperature & Profile Mode */}
@@ -247,7 +380,7 @@ export const SettingsView: React.FC = () => {
           <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-2 border border-outline-variant/20">
             <div className="flex items-center justify-between">
               <label className="font-label text-xs font-semibold text-on-surface flex items-center gap-1">
-                <span>Default Temperature</span>
+                <span>Inference Temperature</span>
                 <span className="material-symbols-outlined text-outline text-[14px]">info</span>
               </label>
               <span className="font-label text-xs font-bold text-primary bg-primary-fixed px-2 py-0.5 rounded-md">
@@ -265,7 +398,7 @@ export const SettingsView: React.FC = () => {
             />
             <div className="flex items-center justify-between text-[11px] font-label text-outline">
               <span>0.0 (Strict / Deterministic)</span>
-              <span>1.0 (Creative)</span>
+              <span>1.0 (Creative / Exploratory)</span>
             </div>
           </div>
 
@@ -317,159 +450,41 @@ export const SettingsView: React.FC = () => {
                 RAG Answering &amp; Search Preferences
               </h2>
               <p className="font-body text-xs text-on-surface-variant">
-                Configure your default answering mode, textbook search scope, and search parameters.
+                Configure default answering mode, textbook search scope, and hybrid fusion weights.
               </p>
             </div>
           </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface font-label text-[11px] font-mono">
-            Active RAG
+          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label text-[11px] font-semibold">
+            Qdrant Docker Vector Store
           </span>
         </div>
 
-        {/* Default Answering Mode & Search Scope Settings */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
-          <div className="flex flex-col gap-1.5 p-space-md rounded-xl bg-surface-container-low border border-outline-variant/20">
-            <label className="font-label text-xs font-semibold text-on-surface flex items-center gap-1">
-              <span className="material-symbols-outlined text-[16px] text-primary">school</span>
-              Default Answering Mode
-            </label>
+        {/* Mode Defaults */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label text-xs font-semibold text-on-surface">Default Answering Mode</label>
             <select
-              value={settings.defaultAnsweringMode || 'exam'}
+              value={settings.defaultAnsweringMode}
               onChange={(e) => updateSettings({ defaultAnsweringMode: e.target.value as any })}
-              className="w-full px-3 py-2 rounded-lg bg-surface-container-lowest text-on-surface font-label text-xs outline-none border border-outline-variant/30 cursor-pointer"
+              className="w-full px-space-md py-2.5 rounded-xl bg-surface-container-low text-on-surface font-label text-xs outline-none border border-outline-variant/30 cursor-pointer"
             >
-              <option value="exam">Mode 1 — Exam Mode (Structured 2/13-mark answers)</option>
-              <option value="explain">Mode 2 — Explain Mode (Tutor with real-world analogies)</option>
-              <option value="retrieval">Mode 3 — Retrieval Mode (Direct raw passages only)</option>
+              <option value="exam">Exam Mode (Anna University 2-Mark &amp; 13-Mark)</option>
+              <option value="explain">Explain Mode (Socratic Intuition &amp; Metaphor)</option>
+              <option value="retrieval">Retrieval Mode (Zero-Hallucination Textbook Quotation)</option>
             </select>
-            <p className="text-[10px] text-outline font-label">Controls default answer synthesis format for prompt sessions.</p>
           </div>
 
-          <div className="flex flex-col gap-1.5 p-space-md rounded-xl bg-surface-container-low border border-outline-variant/20">
-            <label className="font-label text-xs font-semibold text-on-surface flex items-center gap-1">
-              <span className="material-symbols-outlined text-[16px] text-secondary">travel_explore</span>
-              Default Search Scope Setting
-            </label>
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label text-xs font-semibold text-on-surface">Default Search Scope</label>
             <select
-              value={settings.defaultSearchScope || 'textbook_and_materials'}
+              value={settings.defaultSearchScope}
               onChange={(e) => updateSettings({ defaultSearchScope: e.target.value as any })}
-              className="w-full px-3 py-2 rounded-lg bg-surface-container-lowest text-on-surface font-label text-xs outline-none border border-outline-variant/30 cursor-pointer"
+              className="w-full px-space-md py-2.5 rounded-xl bg-surface-container-low text-on-surface font-label text-xs outline-none border border-outline-variant/30 cursor-pointer"
             >
-              <option value="textbook_only">Textbook only (Primary textbook | Student docs excluded)</option>
-              <option value="textbook_and_materials">Textbook + my materials (Search first | Supplementary)</option>
-              <option value="materials_only">My materials only (Textbook excluded | Student docs)</option>
+              <option value="textbook_and_materials">Textbook + Uploaded Materials</option>
+              <option value="textbook_only">Authorized Textbook Only</option>
+              <option value="materials_only">My Uploaded Materials Only</option>
             </select>
-            <p className="text-[10px] text-outline font-label">Prioritizes primary textbook against student notes and uploaded docs.</p>
-          </div>
-        </div>
-
-        {/* Hybrid Weight slider */}
-        <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-2 border border-outline-variant/20">
-          <div className="flex items-center justify-between">
-            <span className="font-label text-xs font-semibold text-on-surface">
-              Hybrid Fusion Weights (Dense Vector vs BM25 Keyword)
-            </span>
-            <span className="font-mono text-xs font-bold text-primary">
-              Vector: {(settings.retrieval.hybridVectorWeight * 100).toFixed(0)}% / BM25:{' '}
-              {((1 - settings.retrieval.hybridVectorWeight) * 100).toFixed(0)}%
-            </span>
-          </div>
-          <input
-            type="range"
-            min="0.1"
-            max="0.9"
-            step="0.05"
-            value={settings.retrieval.hybridVectorWeight}
-            onChange={(e) =>
-              updateSettings({
-                retrieval: {
-                  ...settings.retrieval,
-                  hybridVectorWeight: parseFloat(e.target.value),
-                  hybridBm25Weight: 1 - parseFloat(e.target.value),
-                },
-              })
-            }
-            className="accent-primary h-2 bg-surface-container-highest rounded-lg cursor-pointer"
-          />
-          <div className="flex items-center justify-between text-[11px] font-label text-outline">
-            <span>High Keyword Precision (BM25)</span>
-            <span>Semantic Meaning (Chroma Vector)</span>
-          </div>
-        </div>
-
-        {/* Parent-Child Chunking & Reranking grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
-          <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-1.5 border border-outline-variant/20">
-            <div className="flex items-center justify-between">
-              <span className="font-label text-xs font-semibold text-on-surface">
-                Parent Context Window
-              </span>
-              <span className="font-mono text-xs text-primary font-bold">
-                {settings.retrieval.parentChunkSize} chars
-              </span>
-            </div>
-            <p className="text-[11px] text-outline font-label">
-              Large semantic context passed to the LLM during citation grounding to prevent hallucination.
-            </p>
-          </div>
-
-          <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-1.5 border border-outline-variant/20">
-            <div className="flex items-center justify-between">
-              <span className="font-label text-xs font-semibold text-on-surface">
-                Child Vector Chunk Size
-              </span>
-              <span className="font-mono text-xs text-secondary font-bold">
-                {settings.retrieval.childChunkSize} chars
-              </span>
-            </div>
-            <p className="text-[11px] text-outline font-label">
-              Fine-grained embedding tokens stored in Chroma DB for maximal cosine similarity precision.
-            </p>
-          </div>
-        </div>
-
-        {/* Multi-Format Ingestion & Chunking Support */}
-        <div className="p-space-md rounded-xl bg-surface-container-low border border-outline-variant/20 flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="font-label text-xs font-semibold text-on-surface flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px] text-primary">auto_stories</span>
-              Multi-Format Chunking Pipelines (Active Ingestion Engines)
-            </span>
-            <span className="px-2 py-0.5 rounded bg-surface-container text-outline text-[10px] font-mono">
-              v1.0 Ready
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-1">
-            <div className="p-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/20 flex flex-col gap-1">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-red-600">
-                <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
-                <span>PDF Textbook</span>
-              </div>
-              <p className="text-[11px] text-on-surface-variant font-label leading-relaxed">
-                Structure-aware extraction of textbook sections (H1-H4), preserving mathematical formulas &amp; diagrams.
-              </p>
-            </div>
-
-            <div className="p-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/20 flex flex-col gap-1">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600">
-                <span className="material-symbols-outlined text-[15px]">description</span>
-                <span>Markdown (<code className="font-mono text-[10px]">markdown&gt;=3.8</code>)</span>
-              </div>
-              <p className="text-[11px] text-on-surface-variant font-label leading-relaxed">
-                Heading hierarchy AST parser, splitting chapters and technical code blocks cleanly without clipping context.
-              </p>
-            </div>
-
-            <div className="p-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/20 flex flex-col gap-1">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                <span className="material-symbols-outlined text-[15px]">table_chart</span>
-                <span>CSV Tabular Data</span>
-              </div>
-              <p className="text-[11px] text-on-surface-variant font-label leading-relaxed">
-                20-row tabular block partitioning with persistent column headers and key-value narrative summaries for hybrid search.
-              </p>
-            </div>
           </div>
         </div>
       </section>
@@ -477,9 +492,9 @@ export const SettingsView: React.FC = () => {
       {/* Bottom Save / Reset Action Bar */}
       <div className="pt-space-sm pb-space-lg flex flex-col sm:flex-row sm:items-center justify-between gap-space-md border-t border-surface-container-high">
         <div className="flex items-center gap-2 text-on-surface-variant">
-          <span className="material-symbols-outlined text-primary text-[18px]">lock</span>
+          <span className="material-symbols-outlined text-primary text-[18px]">verified_user</span>
           <span className="font-body text-xs">
-            Settings are stored locally with enterprise SOC2 encryption.
+            Settings are saved locally and synced with your active session.
           </span>
         </div>
 

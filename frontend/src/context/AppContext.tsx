@@ -13,16 +13,16 @@ interface AppContextType {
   
   // Curriculum Subjects (CS8591, UI/UX, BDA, etc.)
   subjects: Subject[];
-  currentSubject: Subject;
-  setCurrentSubject: (subj: Subject) => void;
+  currentSubject: Subject | null;
+  setCurrentSubject: (subj: Subject | null) => void;
   reloadSubjects: () => Promise<void>;
   isAddSubjectModalOpen: boolean;
   setIsAddSubjectModalOpen: (open: boolean) => void;
 
   // Workspace backward-compatibility
   workspaces: Workspace[];
-  currentWorkspace: Workspace;
-  setCurrentWorkspace: (ws: Workspace) => void;
+  currentWorkspace: Workspace | null;
+  setCurrentWorkspace: (ws: Workspace | null) => void;
   
   // Right drawer for citations / document context
   isDocDrawerOpen: boolean;
@@ -49,12 +49,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [currentView, setCurrentView] = useState<AppView>('signup');
   const [user, setUser] = useState<UserProfile>(INITIAL_USER);
   const [subjects, setSubjects] = useState<Subject[]>(INITIAL_SUBJECTS);
-  const [currentSubject, setCurrentSubject] = useState<Subject>(INITIAL_SUBJECTS[0]);
+  const [currentSubject, setCurrentSubject] = useState<Subject | null>(null);
   const [isAddSubjectModalOpen, setIsAddSubjectModalOpen] = useState(false);
 
   // Legacy workspace support mapped to subjects
   const [workspaces] = useState<Workspace[]>(INITIAL_WORKSPACES);
-  const [currentWorkspace, setCurrentWorkspace] = useState<Workspace>(INITIAL_WORKSPACES[0]);
+  const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
 
   const [isDocDrawerOpen, setIsDocDrawerOpen] = useState(false);
   const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
@@ -76,9 +76,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (!currentSubject || !data.some(s => s.subject_id === currentSubject.subject_id)) {
           setCurrentSubject(data[0]);
         }
+      } else {
+        setSubjects([]);
+        setCurrentSubject(null);
       }
     } catch (err) {
       console.warn('Could not load subjects from API:', err);
+      setSubjects([]);
+      setCurrentSubject(null);
     }
   };
 

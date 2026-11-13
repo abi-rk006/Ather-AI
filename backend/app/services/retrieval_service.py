@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any, Tuple
 from .embedding_service import embed_texts
 from .vector_store import vector_store
 from .bm25_service import bm25_service
+from .reranker_service import reranker_service
 from ..models.document import DocumentChunk
 from ..models.chat import SearchScope
 from ..models.retrieval import (
@@ -117,12 +118,13 @@ class RetrievalService:
                 ),
             )
 
-        # 1. Semantic Vector Search via Jina + Chroma Cloud
+        # 1. Semantic Vector Search via Jina + Chroma/Qdrant
+        cand_k = max(request.top_k, 25)
         vector_results = await vector_search(
             question=request.query,
             subject_id=request.subject_id,
             source_scope=request.source_scope,
-            top_k=request.top_k,
+            top_k=cand_k,
         )
 
         v_ids = vector_results.get("ids", [[]])[0]
@@ -134,7 +136,7 @@ class RetrievalService:
             query=request.query,
             subject_id=request.subject_id,
             source_scope=request.source_scope,
-            top_k=request.top_k,
+            top_k=cand_k,
         )
 
         # 3. Reciprocal Rank Fusion (RRF, k=60)
@@ -202,17 +204,34 @@ class RetrievalService:
                 seen_parents.add(parent_id)
             deduped_candidates.append(cand)
 
+        # 4b. Neural Cross-Encoder Reranker (Stage 7)
+        # Re-scores candidate chunks retrieved from vector + BM25 using joint cross-attention.
+        if request.query and deduped_candidates:
+            try:
+                reranked_pool = await reranker_service.rerank(
+                    query=request.query,
+                    candidates=deduped_candidates,
+                    top_n=max(len(deduped_candidates), 25),
+                )
+                if reranked_pool:
+                    deduped_candidates = reranked_pool
+            except Exception as e:
+                logger.warning(f"Neural reranker encountered error; proceeding with RRF ordering: {e}")
+
         # 5. Sorting
         if request.sort_by == "page_order":
             deduped_candidates.sort(
                 key=lambda x: (
                     int(x["metadata"].get("page_start") or 1),
-                    -x["rrf_score"],
+                    -x.get("relevance_score", x.get("rrf_score", 0.0)),
                 )
             )
         else:
-            # Default: relevance descending
-            deduped_candidates.sort(key=lambda x: x["rrf_score"], reverse=True)
+            # Default: relevance descending (relevance_score from reranker or rrf_score fallback)
+            deduped_candidates.sort(
+                key=lambda x: x.get("relevance_score", x.get("rrf_score", 0.0)),
+                reverse=True,
+            )
 
         # 6. Pagination
         total_results = len(deduped_candidates)
@@ -252,7 +271,9 @@ class RetrievalService:
                 RetrievalResultItem(
                     chunk_id=item["chunk_id"],
                     rank=rank_num,
-                    rrf_score=round(item["rrf_score"], 5),
+                    rrf_score=round(item.get("rrf_score", 0.0), 5),
+                    relevance_score=item.get("relevance_score"),
+                    rerank_model=item.get("rerank_model"),
                     text=item["text"],
                     parent_id=parent_id,
                     parent_text=parent_text,
@@ -297,7 +318,7 @@ class RetrievalService:
                 sort_by="relevance",
                 page=1,
                 page_size=top_k,
-                top_k=top_k * 2,
+                top_k=max(20, top_k * 4),
             )
             resp = await self.search_retrieval_mode(req)
 
@@ -307,6 +328,11 @@ class RetrievalService:
                     f"pp. {item.source.page_start}-{item.source.page_end}"
                     if item.source.page_start
                     else "Syllabus Passage"
+                )
+                computed_score = (
+                    item.relevance_score
+                    if item.relevance_score is not None
+                    else min(0.99, round(item.rrf_score * 50, 2))
                 )
                 chunks.append(
                     DocumentChunk(
@@ -319,7 +345,7 @@ class RetrievalService:
                         parent_text=item.parent_text or f"Section Context: {item.source.heading_path}",
                         book_reference=item.source.book_title,
                         chapter=item.source.chapter or item.source.heading_path or "Unit Syllabus",
-                        relevance_score=min(0.99, round(item.rrf_score * 50, 2)),
+                        relevance_score=computed_score,
                         topic=item.source.heading_path or item.source.unit or "Course Outcome",
                     )
                 )

@@ -28,7 +28,7 @@ export const WorkspaceAccess: React.FC = () => {
         {/* Workspaces list */}
         <div className="flex flex-col gap-space-sm">
           {workspaces.map((ws) => {
-            const isSelected = currentWorkspace.id === ws.id;
+            const isSelected = currentWorkspace?.id === ws.id;
 
             return (
               <div

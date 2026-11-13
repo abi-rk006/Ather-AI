@@ -3,8 +3,11 @@ import { useApp } from '../../context/AppContext';
 import { useMaterials } from '../../context/MaterialsContext';
 
 export const ProfileView: React.FC = () => {
-  const { user, isSidebarOpen, setCurrentView, currentWorkspace } = useApp();
+  const { user, isSidebarOpen, setCurrentView, currentSubject } = useApp();
   const { documents } = useMaterials();
+
+  const totalVectorChunks = documents.reduce((acc, d) => acc + (d.chunkCount || 0), 0);
+  const totalSizeMb = +(documents.reduce((acc, d) => acc + (d.sizeBytes || 0), 0) / (1024 * 1024)).toFixed(2);
 
   return (
     <div
@@ -40,7 +43,7 @@ export const ProfileView: React.FC = () => {
             <p className="font-body text-xs text-on-surface-variant mt-0.5">{user.email}</p>
             <p className="font-label text-xs text-outline mt-1 flex items-center gap-1">
               <span className="material-symbols-outlined text-[15px] text-primary">domain</span>
-              <span>{currentWorkspace.name}</span>
+              <span>{currentSubject ? `${currentSubject.code} — ${currentSubject.name}` : 'Curriculum Regulation 2021'}</span>
             </p>
           </div>
         </div>
@@ -58,29 +61,29 @@ export const ProfileView: React.FC = () => {
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-space-md">
         <div className="p-space-md rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-xs flex flex-col gap-1">
           <span className="font-label text-xs text-outline uppercase tracking-wider font-semibold">
-            Knowledge Base Quota
+            Knowledge Base Storage
           </span>
           <div className="flex items-baseline gap-1.5 mt-1">
             <span className="font-headline text-xl font-bold text-on-surface">
-              {user.quotaUsedMb} MB
+              {totalSizeMb} MB
             </span>
             <span className="text-xs text-outline">/ {user.quotaLimitMb} MB</span>
           </div>
           <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden mt-2">
             <div
               className="h-full bg-primary"
-              style={{ width: `${(user.quotaUsedMb / user.quotaLimitMb) * 100}%` }}
+              style={{ width: `${Math.min(100, (totalSizeMb / user.quotaLimitMb) * 100)}%` }}
             />
           </div>
         </div>
 
         <div className="p-space-md rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-xs flex flex-col gap-1">
           <span className="font-label text-xs text-outline uppercase tracking-wider font-semibold">
-            Chroma Vector Records
+            Vector Store Records (Qdrant)
           </span>
           <div className="flex items-baseline gap-1.5 mt-1">
             <span className="font-headline text-xl font-bold text-secondary">
-              {user.activeVectorsCount.toLocaleString()}
+              {totalVectorChunks.toLocaleString()}
             </span>
             <span className="text-xs text-outline">active chunks</span>
           </div>

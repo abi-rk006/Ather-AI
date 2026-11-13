@@ -3,6 +3,7 @@ import type { Message, ChatThread, AnsweringMode, SearchScope, ExamMarksFormat }
 import { INITIAL_MESSAGES, INITIAL_THREADS } from '../api/mockData';
 import { apiClient } from '../api/client';
 import { useApp } from './AppContext';
+import { useSettings } from './SettingsContext';
 
 interface ChatContextType {
   threads: ChatThread[];
@@ -29,6 +30,7 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { showError, setIsDocDrawerOpen, setSelectedCitation } = useApp();
+  const { settings } = useSettings();
   const [threads, setThreads] = useState<ChatThread[]>(INITIAL_THREADS);
   const [currentThread, setCurrentThread] = useState<ChatThread>(INITIAL_THREADS[0]);
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
@@ -74,7 +76,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       searchScope,
       examMarksFormat,
       isStreaming: true,
-      modelUsed: 'Nexus-Arch-v3.2',
+      modelUsed: settings.selectedModel || 'llama-3.3-70b-versatile',
     };
 
     setMessages((prev) => [...prev, tempAssistantMsg]);
@@ -92,6 +94,13 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               msg.id === assistantMsgId ? { ...msg, content: msg.content + chunk } : msg
             )
           );
+        },
+        {
+          provider: settings.llmProvider,
+          endpoint: settings.llmBaseUrl,
+          apiKey: settings.primaryApiKey,
+          model: settings.selectedModel,
+          temperature: settings.temperature,
         }
       );
 

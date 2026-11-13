@@ -8,7 +8,12 @@ interface SettingsContextType {
   updateSettings: (newSettings: Partial<AppSettings>) => void;
   saveSettings: () => Promise<void>;
   resetSettings: () => void;
-  testConnection: (key: string, provider: string) => Promise<{ success: boolean; latencyMs: number }>;
+  testConnection: (
+    key?: string,
+    provider?: string,
+    baseUrl?: string,
+    model?: string
+  ) => Promise<{ success: boolean; latencyMs: number; message?: string }>;
   isSaved: boolean;
 }
 
@@ -40,8 +45,18 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     setTimeout(() => setIsSaved(false), 2500);
   };
 
-  const testConnection = async (key: string, provider: string) => {
-    return await apiClient.verifyApiKey(key, provider);
+  const testConnection = async (
+    key?: string,
+    provider?: string,
+    baseUrl?: string,
+    model?: string
+  ) => {
+    return await apiClient.verifyApiKey(
+      key ?? settings.primaryApiKey,
+      provider ?? settings.llmProvider,
+      baseUrl ?? settings.llmBaseUrl,
+      model ?? settings.selectedModel
+    );
   };
 
   return (

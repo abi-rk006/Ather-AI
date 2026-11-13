@@ -30,6 +30,11 @@ class ChatRequest(BaseModel):
     sessionId: Optional[str] = None
     subjectId: Optional[str] = None
     history: Optional[List[Dict[str, Any]]] = None
+    llmProvider: Optional[str] = None
+    llmEndpoint: Optional[str] = None
+    llmApiKey: Optional[str] = None
+    llmModel: Optional[str] = None
+    temperature: Optional[float] = None
 
 
 class ChatTelemetry(BaseModel):

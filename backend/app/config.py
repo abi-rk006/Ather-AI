@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     JINA_EMBEDDING_DIMENSIONS: int = 1024
     JINA_URL: str = "https://api.jina.ai/v1/embeddings"
 
+    # Stage 7: Neural Cross-Encoder Reranker Configuration
+    RERANKER_ENABLED: bool = True
+    RERANKER_PROVIDER: str = "jina"  # "jina" or "local"
+    RERANKER_MODEL: str = "jina-reranker-v2-base-multilingual"
+    RERANKER_URL: str = "https://api.jina.ai/v1/rerank"
+    RERANKER_TOP_N: int = 4
+
     # Vector Store Provider ("qdrant" or "chroma")
     VECTOR_STORE_PROVIDER: str = "qdrant"
 
@@ -35,6 +42,13 @@ class Settings(BaseSettings):
     QDRANT_CLUSTER_ENDPOINT: Optional[str] = None
     QDRANT_API_KEY: Optional[str] = ""
     QDRANT_COLLECTION_NAME: str = "anna_university_child_chunks_v1"
+
+    # LLM Inference Provider Configuration (Groq, LM Studio, Ollama, Custom URL, OpenAI, Gemini)
+    LLM_PROVIDER: str = "groq"
+    LLM_BASE_URL: str = "https://api.groq.com/openai/v1"
+    LLM_API_KEY: str = ""
+    LLM_MODEL: str = "llama-3.3-70b-versatile"
+    LLM_TEMPERATURE: float = 0.2
 
     # Chroma Cloud Managed Vector Database (Optional Fallback)
     CHROMA_HOST: str = "api.trychroma.com"

@@ -17,6 +17,8 @@ class RetrievalResultItem(BaseModel):
     chunk_id: str
     rank: int
     rrf_score: float
+    relevance_score: Optional[float] = None
+    rerank_model: Optional[str] = None
     text: str
     parent_id: Optional[str] = None
     parent_text: Optional[str] = None
