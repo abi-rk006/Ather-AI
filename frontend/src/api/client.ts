@@ -91,7 +91,7 @@ class ApiClient {
     return null;
   }
 
-  // Send Chat message with Answering Mode & Search Scope support
+  // Send Chat message with Answering Mode & Search Scope support (SSE Streaming Enabled)
   async sendMessage(
     prompt: string,
     answeringMode: AnsweringMode = 'exam',
@@ -101,6 +101,75 @@ class ApiClient {
     onChunk?: (token: string) => void,
     llmConfig?: { provider?: string; endpoint?: string; apiKey?: string; model?: string; temperature?: number }
   ): Promise<{ response: string; citations: Citation[]; telemetry: { tokens: number; tps: number; ttft: string } }> {
+    // 1. True SSE Streaming when onChunk callback is active
+    if (onChunk) {
+      try {
+        const streamRes = await fetch(`${API_BASE_URL}/chat/stream`, {
+          method: 'POST',
+          headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            prompt,
+            answeringMode,
+            searchScope,
+            examMarksFormat,
+            history,
+            llmProvider: llmConfig?.provider,
+            llmEndpoint: llmConfig?.endpoint,
+            llmApiKey: llmConfig?.apiKey,
+            llmModel: llmConfig?.model,
+            temperature: llmConfig?.temperature,
+          }),
+        });
+
+        if (streamRes.ok && streamRes.body) {
+          const reader = streamRes.body.getReader();
+          const decoder = new TextDecoder();
+          let accumulatedResponse = '';
+          let finalCitations: Citation[] = [];
+          let finalTelemetry = { tokens: 0, tps: 0, ttft: '0ms' };
+
+          let buffer = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith('data:')) continue;
+              const jsonStr = trimmed.slice(5).trim();
+              try {
+                const parsed = JSON.parse(jsonStr);
+                if (parsed.token) {
+                  accumulatedResponse += parsed.token;
+                  onChunk(parsed.token);
+                }
+                if (parsed.done) {
+                  if (parsed.citations) finalCitations = parsed.citations;
+                  if (parsed.telemetry) finalTelemetry = parsed.telemetry;
+                }
+              } catch {
+                // Ignore partial chunks
+              }
+            }
+          }
+
+          if (accumulatedResponse.trim()) {
+            return {
+              response: accumulatedResponse,
+              citations: finalCitations,
+              telemetry: finalTelemetry,
+            };
+          }
+        }
+      } catch (streamErr) {
+        console.warn('Streaming endpoint failed or interrupted, falling back to standard POST:', streamErr);
+      }
+    }
+
+    // 2. Synchronous fallback POST
     try {
       const res = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
