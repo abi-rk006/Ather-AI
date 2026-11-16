@@ -106,11 +106,15 @@ def test_layered_prompt_architecture_specifications():
     assert "40 and 100 words" in EXAM_2_MARK_PROMPT
     assert "bold" in EXAM_2_MARK_PROMPT.lower()
 
-    # Layer 2: Exam 13-Mark Adaptive Structures
+    # Layer 2: Exam 13-Mark Adaptive Structures & 13 Rules
     assert "Algorithm Questions" in EXAM_13_MARK_PROMPT
     assert "Architecture / System Questions" in EXAM_13_MARK_PROMPT
     assert "Comparison Questions" in EXAM_13_MARK_PROMPT
     assert "Theoretical / Conceptual Questions" in EXAM_13_MARK_PROMPT
+    assert "13-mark answer generation rules" in EXAM_13_MARK_PROMPT.lower()
+    assert "explain each component separately" in EXAM_13_MARK_PROMPT.lower()
+    assert "avoid repeating the same definition" in EXAM_13_MARK_PROMPT.lower()
+    assert "never infer a page number" in EXAM_13_MARK_PROMPT.lower() or "never infer a page number" in GLOBAL_ACADEMIC_SYSTEM_PROMPT.lower()
 
     # Layer 2: Explain Mode
     assert "Everyday Analogy" in EXPLAIN_MODE_PROMPT
