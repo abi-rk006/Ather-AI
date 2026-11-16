@@ -22,11 +22,55 @@ export const ChatInterface: React.FC = () => {
   const [isParamsPanelOpen, setIsParamsPanelOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedExport, setCopiedExport] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Smart auto-scroll handling that respects user scrolling up
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
+  const isAtBottomRef = useRef(true);
+
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    // User is considered at the bottom if within 120px of the bottom edge
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const isClose = distanceToBottom < 120;
+    isAtBottomRef.current = isClose;
+    if (isClose && isUserScrolledUp) {
+      setIsUserScrolledUp(false);
+    } else if (!isClose && !isUserScrolledUp) {
+      setIsUserScrolledUp(true);
+    }
+  };
+
+  // Only auto-scroll while streaming if user is already at the bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isAtBottomRef.current && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    }
   }, [messages.length, messages[messages.length - 1]?.content]);
+
+  // When a new message is submitted (message count increases), reset to bottom
+  const prevMsgLength = useRef(messages.length);
+  useEffect(() => {
+    if (messages.length > prevMsgLength.current) {
+      isAtBottomRef.current = true;
+      setIsUserScrolledUp(false);
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+      }
+    }
+    prevMsgLength.current = messages.length;
+  }, [messages.length]);
+
+  const scrollToBottom = () => {
+    isAtBottomRef.current = true;
+    setIsUserScrolledUp(false);
+    scrollContainerRef.current?.scrollTo({
+      top: scrollContainerRef.current.scrollHeight,
+      behavior: 'smooth',
+    });
+  };
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -215,8 +259,12 @@ My Question: What are the primary technical considerations, definitions, and imp
         </div>
       ) : (
         <>
-          {/* Primary Chat Messages Scroll Area */}
-          <main className="w-full max-w-5xl mx-auto px-3 sm:px-space-lg py-space-md sm:py-space-lg flex-1 overflow-y-auto flex flex-col gap-space-lg sm:gap-space-xl">
+          {/* Primary Chat Messages Scroll Area with User-Scroll Awareness */}
+          <main
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            className="w-full max-w-5xl mx-auto px-3 sm:px-space-lg py-space-md sm:py-space-lg flex-1 overflow-y-auto flex flex-col gap-space-lg sm:gap-space-xl"
+          >
             {messages.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center py-12 px-4 gap-6">
                 <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-xs">
@@ -616,6 +664,20 @@ My Question: What are the primary technical considerations, definitions, and imp
         }))}
             <div ref={messagesEndRef} className="h-4 flex-shrink-0" />
           </main>
+
+          {/* Floating Scroll-to-Bottom Quick Action Pill */}
+          {isUserScrolledUp && (
+            <div className="w-full max-w-5xl mx-auto relative flex justify-end px-4 pointer-events-none">
+              <button
+                onClick={scrollToBottom}
+                className="pointer-events-auto absolute -top-12 right-6 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-highest/95 hover:bg-surface-container-high text-on-surface text-xs font-label font-semibold shadow-lg border border-outline-variant/40 backdrop-blur-md transition-all active:scale-95 animate-fade-in"
+                title="Jump to latest messages"
+              >
+                <span className="material-symbols-outlined text-[16px] text-primary">arrow_downward</span>
+                <span>Scroll to latest</span>
+              </button>
+            </div>
+          )}
 
           {/* Permanently Visible Bottom Prompt Input Bar */}
           <div className="flex-shrink-0 z-20 bg-surface/95 backdrop-blur-md border-t border-surface-container/30">
