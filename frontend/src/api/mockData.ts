@@ -20,7 +20,7 @@ export const INITIAL_SETTINGS: AppSettings = {
   primaryApiKey: '',
   secondaryApiKey: '',
   fallbackEnabled: true,
-  selectedModel: 'llama-3.3-70b-versatile',
+  selectedModel: 'qwen/qwen3.8-27b',
   temperature: 0.2,
   samplingMode: 'deterministic',
   maxTokens: 8192,

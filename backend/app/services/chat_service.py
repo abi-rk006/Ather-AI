@@ -269,7 +269,11 @@ class ChatService:
             if auth_token:
                 headers["Authorization"] = f"Bearer {auth_token}"
 
-            model_lower = (model or settings.LLM_MODEL).lower()
+            target_model = model or settings.LLM_MODEL
+            if provider == "groq" and target_model in ("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "llama3-8b-8192", ""):
+                target_model = "qwen/qwen3.8-27b"
+
+            model_lower = target_model.lower()
             provider_lower = (provider or "").lower()
             if "mistral" in model_lower or "gemma" in model_lower or provider_lower in ("lmstudio", "ollama"):
                 messages = [
@@ -282,7 +286,7 @@ class ChatService:
                 ]
 
             payload = {
-                "model": model or settings.LLM_MODEL,
+                "model": target_model,
                 "messages": messages,
                 "temperature": 0.0,
                 "max_tokens": 64,
@@ -290,6 +294,10 @@ class ChatService:
 
             async with httpx.AsyncClient(timeout=httpx.Timeout(4.0, connect=1.5)) as client:
                 res = await client.post(chat_completions_url, headers=headers, json=payload)
+                if res.status_code == 404 and provider == "groq" and payload["model"] != "qwen/qwen3.8-27b":
+                    payload["model"] = "qwen/qwen3.8-27b"
+                    res = await client.post(chat_completions_url, headers=headers, json=payload)
+
                 if res.status_code == 200:
                     data = res.json()
                     choices = data.get("choices", [])
@@ -584,6 +592,10 @@ class ChatService:
         if auth_token:
             headers["Authorization"] = f"Bearer {auth_token}"
 
+        # Proactively map decommissioned/inaccessible Groq models to active Qwen 3.8 27B
+        if provider == "groq" and model in ("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "llama3-8b-8192", ""):
+            model = "qwen/qwen3.8-27b"
+
         messages = self._build_messages(
             system_prompt=system_prompt,
             history=history,
@@ -604,6 +616,11 @@ class ChatService:
             logger.info(f"Calling LLM ({provider}) at {chat_completions_url} (model={model})...")
             async with httpx.AsyncClient(timeout=httpx.Timeout(35.0, connect=2.5)) as client:
                 res = await client.post(chat_completions_url, headers=headers, json=payload)
+                if res.status_code == 404 and provider == "groq" and payload["model"] != "qwen/qwen3.8-27b":
+                    logger.info(f"Model '{payload['model']}' not found on Groq; automatically switching to 'qwen/qwen3.8-27b'...")
+                    payload["model"] = "qwen/qwen3.8-27b"
+                    res = await client.post(chat_completions_url, headers=headers, json=payload)
+
                 if res.status_code == 200:
                     data = res.json()
                     choices = data.get("choices", [])
@@ -639,6 +656,8 @@ class ChatService:
         base_url = request.llmEndpoint or settings.LLM_BASE_URL
         api_key = request.llmApiKey or settings.LLM_API_KEY
         model = request.llmModel or settings.LLM_MODEL
+        if provider == "groq" and model in ("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "llama3-8b-8192", ""):
+            model = "qwen/qwen3.8-27b"
         temperature = self._resolve_temperature(
             request.answeringMode, request.examMarksFormat, request.temperature
         )
@@ -795,6 +814,8 @@ class ChatService:
         base_url = request.llmEndpoint or settings.LLM_BASE_URL
         api_key = request.llmApiKey or settings.LLM_API_KEY
         model = request.llmModel or settings.LLM_MODEL
+        if provider == "groq" and model in ("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "llama3-8b-8192", ""):
+            model = "qwen/qwen3.8-27b"
         temperature = self._resolve_temperature(
             request.answeringMode, request.examMarksFormat, request.temperature
         )
@@ -885,6 +906,10 @@ class ChatService:
             evidence_sufficient=evidence_sufficient,
         )
 
+        # Proactively map decommissioned/inaccessible Groq models to active Qwen 3.8 27B
+        if provider == "groq" and model in ("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "llama3-8b-8192", ""):
+            model = "qwen/qwen3.8-27b"
+
         messages = self._build_messages(
             system_prompt=system_prompt,
             history=request.history,
@@ -909,7 +934,39 @@ class ChatService:
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(45.0, connect=3.0)) as client:
                 async with client.stream("POST", chat_completions_url, headers=headers, json=payload) as stream_res:
-                    if stream_res.status_code == 200:
+                    active_stream = stream_res
+                    if stream_res.status_code == 404 and provider == "groq" and payload["model"] != "qwen/qwen3.8-27b":
+                        logger.info(f"Stream model '{payload['model']}' returned 404 on Groq; automatically retrying with 'qwen/qwen3.8-27b'...")
+                        payload["model"] = "qwen/qwen3.8-27b"
+                        async with client.stream("POST", chat_completions_url, headers=headers, json=payload) as retry_res:
+                            if retry_res.status_code == 200:
+                                stream_successful = True
+                                async for line in retry_res.aiter_lines():
+                                    if not line or not line.startswith("data:"):
+                                        continue
+                                    data_str = line[5:].strip()
+                                    if data_str == "[DONE]":
+                                        break
+                                    try:
+                                        chunk = json.loads(data_str)
+                                        choices = chunk.get("choices", [])
+                                        if choices:
+                                            delta = choices[0].get("delta", {})
+                                            content_token = delta.get("content", "")
+                                            if content_token:
+                                                if first_token_time is None:
+                                                    first_token_time = time.time()
+                                                accumulated_tokens.append(content_token)
+                                                chunk_data = {
+                                                    "token": content_token,
+                                                    "done": False,
+                                                    "sessionId": session_id,
+                                                    "messageId": message_id,
+                                                }
+                                                yield f"data: {json.dumps(chunk_data)}\n\n"
+                                    except Exception:
+                                        continue
+                    elif stream_res.status_code == 200:
                         stream_successful = True
                         async for line in stream_res.aiter_lines():
                             if not line or not line.startswith("data:"):

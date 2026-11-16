@@ -414,7 +414,8 @@ class ApiClient {
   }
 
   async verifyApiKey(key: string, provider: string = 'groq', baseUrl?: string, model?: string): Promise<{ success: boolean; latencyMs: number; message?: string }> {
-    const res = await this.testLlmEndpoint(provider, baseUrl || '', key, model || 'llama-3.3-70b-versatile');
+    const defaultModel = provider === 'groq' ? 'qwen/qwen3.8-27b' : 'local-model';
+    const res = await this.testLlmEndpoint(provider, baseUrl || '', key, model || defaultModel);
     return {
       success: res.success,
       latencyMs: res.latencyMs,

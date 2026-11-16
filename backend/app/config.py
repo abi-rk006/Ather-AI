@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "groq"
     LLM_BASE_URL: str = "https://api.groq.com/openai/v1"
     LLM_API_KEY: str = ""
-    LLM_MODEL: str = "llama-3.3-70b-versatile"
+    LLM_MODEL: str = "qwen/qwen3.8-27b"
     LLM_TEMPERATURE: float = 0.2
 
     # Chroma Cloud Managed Vector Database (Optional Fallback)

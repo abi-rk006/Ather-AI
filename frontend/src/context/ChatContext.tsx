@@ -76,7 +76,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       searchScope,
       examMarksFormat,
       isStreaming: true,
-      modelUsed: settings.selectedModel || 'llama-3.3-70b-versatile',
+      modelUsed: settings.selectedModel || 'qwen/qwen3.8-27b',
     };
 
     setMessages((prev) => [...prev, tempAssistantMsg]);

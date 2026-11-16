@@ -17,7 +17,7 @@ class UserPreferences(BaseModel):
     defaultSearchScope: SearchScope = "textbook_and_materials"
     defaultExamMarksFormat: ExamMarksFormat = "13-mark"
     theme: Literal["light", "dark", "system"] = "system"
-    selectedModel: str = "llama-3.3-70b-versatile"
+    selectedModel: str = "qwen/qwen3.8-27b"
     temperature: float = 0.2
     llmProvider: str = "groq"
     llmBaseUrl: str = "https://api.groq.com/openai/v1"

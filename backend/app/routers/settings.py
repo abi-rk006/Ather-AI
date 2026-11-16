@@ -15,7 +15,7 @@ class TestLLMRequest(BaseModel):
     provider: str = "groq"
     baseUrl: Optional[str] = None
     apiKey: Optional[str] = None
-    model: str = "llama-3.3-70b-versatile"
+    model: str = "qwen/qwen3.8-27b"
 
 
 class TestLLMResponse(BaseModel):
@@ -115,22 +115,37 @@ async def test_llm_connection(payload: TestLLMRequest):
 
             # 2. Try POST /chat/completions with minimal ping
             chat_url = f"{endpoint}/chat/completions"
+            test_model = payload.model or ("qwen/qwen3.8-27b" if payload.provider == "groq" else "local-model")
             res2 = await client.post(
                 chat_url,
                 headers=headers,
                 json={
-                    "model": payload.model,
+                    "model": test_model,
                     "messages": [{"role": "user", "content": "ping"}],
                     "max_tokens": 1,
                 },
             )
+            # Automatic fallback for Groq if the selected model returned 404 (e.g. decommissioned or unavailable)
+            if res2.status_code == 404 and payload.provider == "groq" and test_model != "qwen/qwen3.8-27b":
+                test_model = "qwen/qwen3.8-27b"
+                res2 = await client.post(
+                    chat_url,
+                    headers=headers,
+                    json={
+                        "model": test_model,
+                        "messages": [{"role": "user", "content": "ping"}],
+                        "max_tokens": 1,
+                    },
+                )
+
             latency_ms = int((time.time() - start_time) * 1000)
 
             if res2.status_code == 200:
+                note = f" (switched from '{payload.model}' which was unavailable)" if test_model != payload.model else ""
                 return TestLLMResponse(
                     success=True,
                     latencyMs=latency_ms,
-                    message=f"Connected to {payload.provider.upper()} ({payload.model}) successfully!",
+                    message=f"Connected to {payload.provider.upper()} ({test_model}){note} successfully!",
                 )
             elif res2.status_code == 401:
                 return TestLLMResponse(

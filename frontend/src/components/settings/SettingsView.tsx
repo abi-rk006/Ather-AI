@@ -18,7 +18,7 @@ export const SettingsView: React.FC = () => {
       label: 'Groq Cloud',
       icon: 'bolt',
       url: 'https://api.groq.com/openai/v1',
-      defaultModel: 'llama-3.3-70b-versatile',
+      defaultModel: 'qwen/qwen3.8-27b',
       note: 'Ultra-fast cloud LPU inference (>250 tokens/sec)',
     },
     {
@@ -65,10 +65,10 @@ export const SettingsView: React.FC = () => {
 
   const modelOptionsByProvider: Record<LLMProvider, { label: string; value: string }[]> = {
     groq: [
-      { label: 'Llama 3.3 70B Versatile (Recommended - 128k context)', value: 'llama-3.3-70b-versatile' },
-      { label: 'Llama 3.1 8B Instant (Ultra-fast - 128k context)', value: 'llama-3.1-8b-instant' },
-      { label: 'DeepSeek R1 Distill Llama 70B', value: 'deepseek-r1-distill-llama-70b' },
-      { label: 'Mixtral 8x7B (32k context)', value: 'mixtral-8x7b-32768' },
+      { label: 'Qwen 3.8 27B (Recommended - Active & Fast)', value: 'qwen/qwen3.8-27b' },
+      { label: 'OpenAI GPT OSS 120B (Active - Reasoning)', value: 'openai/gpt-oss-120b' },
+      { label: 'OpenAI GPT OSS 20B (Active - Lightweight)', value: 'openai/gpt-oss-20b' },
+      { label: 'Allam 2 7B (Active on Groq)', value: 'allam-2-7b' },
     ],
     lmstudio: [
       { label: 'local-model (Active model loaded in LM Studio)', value: 'local-model' },
