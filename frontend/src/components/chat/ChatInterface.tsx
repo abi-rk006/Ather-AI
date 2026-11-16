@@ -5,7 +5,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { PromptInput } from './PromptInput';
 import { DocumentViewer } from './DocumentViewer';
 import { RetrievalStudio } from './RetrievalStudio';
-import { MarkdownMessage } from './MarkdownMessage';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 export const ChatInterface: React.FC = () => {
   const {
@@ -540,10 +540,8 @@ My Question: What are the primary technical considerations, definitions, and imp
                     </div>
                   )}
 
-                  {/* Render Message Body Markdown with Tables and Math */}
-                  <div className="font-body text-xs sm:text-sm text-on-surface leading-relaxed">
-                    <MarkdownMessage content={message.content} />
-                  </div>
+                  {/* Render Message Body Markdown with LaTeX and Tables */}
+                  <MarkdownRenderer content={message.content} />
 
                   {/* Grounding Sources Chips Bar */}
                   {message.citations && message.citations.length > 0 && (

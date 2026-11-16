@@ -111,3 +111,14 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(113, 119, 133, 0.45);
 }
+
+/* KaTeX Display Math responsive styling */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5rem 0.25rem;
+  margin: 0.75rem 0 !important;
+}
+.katex {
+  font-size: 1.05em;
+}
