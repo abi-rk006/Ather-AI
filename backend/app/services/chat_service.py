@@ -269,12 +269,21 @@ class ChatService:
             if auth_token:
                 headers["Authorization"] = f"Bearer {auth_token}"
 
-            payload = {
-                "model": model or settings.LLM_MODEL,
-                "messages": [
+            model_lower = (model or settings.LLM_MODEL).lower()
+            provider_lower = (provider or "").lower()
+            if "mistral" in model_lower or "gemma" in model_lower or provider_lower in ("lmstudio", "ollama"):
+                messages = [
+                    {"role": "user", "content": f"[INSTRUCTION]\n{rewrite_system}\n\n{rewrite_user}"}
+                ]
+            else:
+                messages = [
                     {"role": "system", "content": rewrite_system},
                     {"role": "user", "content": rewrite_user},
-                ],
+                ]
+
+            payload = {
+                "model": model or settings.LLM_MODEL,
+                "messages": messages,
                 "temperature": 0.0,
                 "max_tokens": 64,
             }
@@ -471,6 +480,85 @@ class ChatService:
             "*(Synthesized from retrieved textbook passages)*"
         )
 
+    def _build_messages(
+        self,
+        system_prompt: str,
+        history: Optional[List[Dict[str, Any]]],
+        user_prompt: str,
+        raw_prompt: str = "",
+        provider: str = "",
+        model: str = "",
+    ) -> List[Dict[str, str]]:
+        """
+        Constructs a sanitized messages list compatible with any OpenAI-compatible engine,
+        specifically preventing Jinja template exceptions in Mistral (mistralai/mistral-7b-instruct-v0.3),
+        Mixtral, and Gemma models that require strict user/assistant alternation.
+        """
+        raw_clean = raw_prompt.strip()
+
+        # Step 1: Normalize history and skip duplicate of current user prompt
+        norm_history: List[Dict[str, str]] = []
+        if history:
+            for h in history:
+                role = "user" if h.get("sender") == "user" or h.get("role") == "user" else "assistant"
+                content = (h.get("content") or "").strip()
+                if not content:
+                    continue
+                # Skip duplicate if the frontend already appended the latest user prompt into history
+                if role == "user" and (content == raw_clean or content == user_prompt.strip()):
+                    continue
+                norm_history.append({"role": role, "content": content})
+
+        # Keep last 4 relevant turns
+        norm_history = norm_history[-4:]
+
+        # Step 2: Merge adjacent turns of the same role (e.g. user+user or assistant+assistant)
+        deduped_turns: List[Dict[str, str]] = []
+        for item in norm_history:
+            if deduped_turns and deduped_turns[-1]["role"] == item["role"]:
+                deduped_turns[-1]["content"] += f"\n\n{item['content']}"
+            else:
+                deduped_turns.append({"role": item["role"], "content": item["content"]})
+
+        # Step 3: Ensure strict alternation with the final user turn
+        if deduped_turns and deduped_turns[-1]["role"] == "user":
+            combined_user = f"{deduped_turns.pop()['content']}\n\n{user_prompt}"
+        else:
+            combined_user = user_prompt
+
+        deduped_turns.append({"role": "user", "content": combined_user})
+
+        # Step 4: Ensure the first turn is 'user' (required for models without leading assistant turns)
+        while deduped_turns and deduped_turns[0]["role"] != "user":
+            deduped_turns.pop(0)
+
+        if not deduped_turns:
+            deduped_turns = [{"role": "user", "content": user_prompt}]
+
+        # Step 5: Check if the model or provider requires system prompt embedded in the first user turn
+        model_lower = (model or "").lower()
+        provider_lower = (provider or "").lower()
+        is_strict_alternating = (
+            "mistral" in model_lower
+            or "mixtral" in model_lower
+            or "gemma" in model_lower
+            or "zephyr" in model_lower
+            or provider_lower in ("lmstudio", "ollama")
+        )
+
+        if is_strict_alternating:
+            # Mistral / Gemma Jinja template enforces:
+            # (loop.index0 % 2 == 0 -> 'user', loop.index0 % 2 == 1 -> 'assistant')
+            # Embedding system instruction into the first user turn guarantees zero template 400 errors.
+            deduped_turns[0]["content"] = (
+                f"[SYSTEM INSTRUCTION]\n{system_prompt}\n\n"
+                f"[STUDENT INQUIRY & TEXTBOOK EVIDENCE]\n{deduped_turns[0]['content']}"
+            )
+            return deduped_turns
+
+        # Standard OpenAI, Groq, and Llama 3 models
+        return [{"role": "system", "content": system_prompt}] + deduped_turns
+
     async def _call_llm_api(
         self,
         provider: str,
@@ -481,6 +569,7 @@ class ChatService:
         system_prompt: str,
         user_prompt: str,
         history: Optional[List[Dict[str, Any]]] = None,
+        raw_prompt: str = "",
     ) -> Optional[str]:
         """
         Sends synchronous request to OpenAI-compatible Chat Completions API.
@@ -495,14 +584,14 @@ class ChatService:
         if auth_token:
             headers["Authorization"] = f"Bearer {auth_token}"
 
-        messages = [{"role": "system", "content": system_prompt}]
-        if history:
-            for h in history[-4:]:
-                role = "user" if h.get("sender") == "user" or h.get("role") == "user" else "assistant"
-                content = h.get("content", "")
-                if content:
-                    messages.append({"role": role, "content": content})
-        messages.append({"role": "user", "content": user_prompt})
+        messages = self._build_messages(
+            system_prompt=system_prompt,
+            history=history,
+            user_prompt=user_prompt,
+            raw_prompt=raw_prompt,
+            provider=provider,
+            model=model,
+        )
 
         payload = {
             "model": model,
@@ -622,6 +711,7 @@ class ChatService:
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 history=request.history,
+                raw_prompt=request.prompt,
             )
 
             if llm_text:
@@ -795,14 +885,14 @@ class ChatService:
             evidence_sufficient=evidence_sufficient,
         )
 
-        messages = [{"role": "system", "content": system_prompt}]
-        if request.history:
-            for h in request.history[-4:]:
-                role = "user" if h.get("sender") == "user" or h.get("role") == "user" else "assistant"
-                content = h.get("content", "")
-                if content:
-                    messages.append({"role": role, "content": content})
-        messages.append({"role": "user", "content": user_prompt})
+        messages = self._build_messages(
+            system_prompt=system_prompt,
+            history=request.history,
+            user_prompt=user_prompt,
+            raw_prompt=request.prompt,
+            provider=provider,
+            model=model,
+        )
 
         payload = {
             "model": model,

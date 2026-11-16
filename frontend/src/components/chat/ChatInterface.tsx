@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useChat } from '../../context/ChatContext';
 import { useApp } from '../../context/AppContext';
 import { useSettings } from '../../context/SettingsContext';
@@ -22,6 +22,11 @@ export const ChatInterface: React.FC = () => {
   const [isParamsPanelOpen, setIsParamsPanelOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedExport, setCopiedExport] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length, messages[messages.length - 1]?.content]);
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -69,12 +74,12 @@ My Question: What are the primary technical considerations, definitions, and imp
 
   return (
     <div
-      className={`relative min-h-[calc(100vh-64px)] flex flex-col justify-between transition-all duration-300 ease-in-out w-full ${
+      className={`relative h-[calc(100vh-64px)] flex flex-col overflow-hidden transition-all duration-300 ease-in-out w-full ${
         isSidebarOpen ? 'lg:pl-72' : 'pl-0'
       } ${isDocDrawerOpen ? 'xl:pr-[420px]' : 'pr-0'}`}
     >
       {/* Top Session Sub-header */}
-      <section className="sticky top-16 z-20 bg-surface/95 backdrop-blur-md border-b border-surface-container px-3 sm:px-space-lg py-2">
+      <section className="flex-shrink-0 z-20 bg-surface/95 backdrop-blur-md border-b border-surface-container px-3 sm:px-space-lg py-2">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 flex-wrap">
           {/* Thread Title & Mode Selector */}
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
@@ -211,7 +216,7 @@ My Question: What are the primary technical considerations, definitions, and imp
       ) : (
         <>
           {/* Primary Chat Messages Scroll Area */}
-          <main className="w-full max-w-5xl mx-auto px-3 sm:px-space-lg py-space-md sm:py-space-lg flex-1 flex flex-col gap-space-lg sm:gap-space-xl">
+          <main className="w-full max-w-5xl mx-auto px-3 sm:px-space-lg py-space-md sm:py-space-lg flex-1 overflow-y-auto flex flex-col gap-space-lg sm:gap-space-xl">
             {messages.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center py-12 px-4 gap-6">
                 <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-xs">
@@ -609,12 +614,13 @@ My Question: What are the primary technical considerations, definitions, and imp
             </div>
           );
         }))}
-      </main>
+            <div ref={messagesEndRef} className="h-4 flex-shrink-0" />
+          </main>
 
-      {/* Sticky Bottom Prompt Input Bar */}
-      <div className="sticky bottom-0 z-20">
-        <PromptInput />
-      </div>
+          {/* Permanently Visible Bottom Prompt Input Bar */}
+          <div className="flex-shrink-0 z-20 bg-surface/95 backdrop-blur-md border-t border-surface-container/30">
+            <PromptInput />
+          </div>
     </>
   )}
 
