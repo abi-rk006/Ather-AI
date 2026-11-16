@@ -206,6 +206,63 @@ def test_api_chat_stream_endpoint():
     assert "citations" in final_event
 
 
+def test_13_mark_question_analysis_and_autonomous_gap_filling_blueprint():
+    """
+    P0 TEST:
+    Verifies that for 13-mark questions:
+    1. The pipeline analyzes question archetype (Algorithm/Protocol, Comparison, Derivation, etc.).
+    2. Identifies mandatory Anna University headings and subheadings.
+    3. Cross-references with evidence chunks to identify missing sections.
+    4. Explicitly directs autonomous generation for any missing subheadings (diagrams, numerical traces, algorithms).
+    """
+    prompt = "Explain Two-Phase Locking (2PL) Protocol with diagrams and working example"
+    sample_citation = CitationModel(
+        id="cit-001",
+        docTitle="Database System Concepts",
+        docType="pdf",
+        pageOrSection="pp. 642-645",
+        chunkText="The two-phase locking protocol guarantees serializability. A transaction must acquire locks during growing phase.",
+        relevanceScore=0.91,
+        topic="DBMS Concurrency Control",
+        chunkId="chunk-dbms-2pl",
+    )
+
+    # 1. Test outline analysis
+    blueprint = chat_service._analyze_13_mark_question_and_plan_outline(prompt, [sample_citation])
+    assert "<SYLLABUS_13_MARK_BLUEPRINT>" in blueprint
+    assert "Algorithm & Protocol Execution" in blueprint
+    assert "Architectural Flow / State Transition Diagram" in blueprint
+    assert "Step-by-Step Working Example & Execution Trace" in blueprint
+    assert "AUTONOMOUS GENERATION DIRECTIVE" in blueprint
+    assert "[MISSING IN RETRIEVED EVIDENCE -> GENERATE AUTONOMOUSLY]" in blueprint
+
+    # 2. Test context prompt injection for 13-mark
+    context_prompt = chat_service._build_context_prompt(
+        prompt=prompt,
+        citations=[sample_citation],
+        evidence_sufficient=True,
+        marks_format="13-mark",
+    )
+    assert "<SYLLABUS_13_MARK_BLUEPRINT>" in context_prompt
+    assert "MANDATORY 13-MARK HEADINGS" in context_prompt
+
+    # 3. Test 2-mark does NOT inject 13-mark blueprint
+    context_prompt_2m = chat_service._build_context_prompt(
+        prompt=prompt,
+        citations=[sample_citation],
+        evidence_sufficient=True,
+        marks_format="2-mark",
+    )
+    assert "<SYLLABUS_13_MARK_BLUEPRINT>" not in context_prompt_2m
+
+    # 4. Test Comparative Archetype
+    comp_blueprint = chat_service._analyze_13_mark_question_and_plan_outline(
+        "Compare Strict 2PL vs Rigorous 2PL with trade-offs", [sample_citation]
+    )
+    assert "Comparative / Trade-off Analysis" in comp_blueprint
+    assert "Comparison Table" in comp_blueprint
+
+
 if __name__ == "__main__":
     test_no_generic_buzzwords_in_fallback_when_evidence_is_insufficient()
     test_evidence_derived_fallback_extracts_from_citations()
@@ -213,5 +270,6 @@ if __name__ == "__main__":
     test_query_contextualization_for_conversational_followups()
     test_evidence_sufficiency_evaluation()
     test_api_chat_stream_endpoint()
+    test_13_mark_question_analysis_and_autonomous_gap_filling_blueprint()
     print("All Stage 8 Academic RAG tests passed successfully!")
 
