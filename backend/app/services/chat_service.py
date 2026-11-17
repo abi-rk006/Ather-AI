@@ -123,6 +123,16 @@ Format your answer into these clear, numbered sections:
 9. **Disadvantages & Limitations of the Topic**: Technical constraints and modern engineering mitigations.
 10. **Conclusion**: Academic summary synthesizing the core takeaway for university valuation.
 
+6. STRICT TOPIC RELEVANCE & VALUATION RUBRIC:
+   - Mark Allocation Scheme:
+     * Definition & Introduction: 1 - 2 Marks
+     * Architecture & ASCII Diagram: 2 - 3 Marks
+     * Working Principle & Math Equations ($$h_t, y_t$$): 3 Marks
+     * Types, Variations & Comparison Table: 2 - 3 Marks
+     * Applications, Advantages & Limitations: 3 - 4 Marks
+   - Write ONLY the concepts directly relevant to the question asked.
+   - Do NOT dump unrelated deep learning topics (e.g., do not discuss gradient descent variants, regularization, or general optimization unless explicitly asked by the question).
+
 ADAPTIVE QUESTION TYPES (retain these sections within the structure above):
 - **Algorithm Questions**: Include Problem Formulation, Core Procedure, Pseudocode/Flow, Trace Example, Complexity Analysis, Advantages & Disadvantages.
 - **Architecture / System Questions**: Include Overview, Component Breakdown, ASCII Architecture Diagram, Data/Control Flow, State Transitions, Advantages & Disadvantages.
