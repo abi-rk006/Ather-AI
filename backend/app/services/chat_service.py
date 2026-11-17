@@ -89,59 +89,46 @@ OBJECTIVE:
 Deliver a comprehensive, user-friendly, highly structured, and high-scoring university examination answer that strictly aligns with Anna University Regulation 2021 valuation rubrics.
 
 CRITICAL PRESENTATION & STRUCTURE REQUIREMENTS:
-1. USER-FRIENDLY MATHEMATICAL FORMULATIONS:
+1. CONTENT PURITY (NO OCR NOISE):
+   - NEVER copy OCR artifacts, image placeholders (e.g. "[image]"), or page numbers (e.g. "Page 21") from raw textbook passages into your answer. Always synthesize fluid, professional academic prose.
+
+2. TOPIC-CENTRIC ADVANTAGES & DISADVANTAGES (MANDATORY):
+   - Advantages and Disadvantages must ALWAYS evaluate the actual subject/technology/algorithm asked (e.g., Advantages of RNN, Disadvantages of RNN).
+   - NEVER write meta-commentary about the textbook, syllabus indexing, or vector storage.
+   - **Advantages of the Topic**: 4-5 concrete engineering merits, architectural strengths, and efficiency benefits.
+   - **Disadvantages & Limitations of the Topic**: 4-5 concrete technical limitations, bottlenecks, or failure modes (e.g., vanishing/exploding gradients, computational bottlenecks, memory overhead), along with practical engineering mitigations.
+
+3. USER-FRIENDLY MATHEMATICAL FORMULATIONS:
    - When formulas or mathematical concepts are involved (e.g. state transitions, loss functions, complexities, serializability tests, Bellman-Ford relaxations):
      * Display main equations clearly using LaTeX display math blocks: `$$ ... $$`
      * Format inline symbols cleanly: `$h_t$`, `$W_{xh}$`, `$O(V \\cdot E)$`
      * Directly beneath every equation, provide a clear parameter legend defining each variable.
      * Explain the practical intuition of what the formula computes in accessible, student-friendly terms.
 
-2. STRUCTURED MARKDOWN TABLES (MANDATORY):
+4. STRUCTURED MARKDOWN TABLES (MANDATORY):
    - You MUST include at least one clean, comprehensive Markdown Table (`| Parameter / Feature | Description / Value | Remarks |`).
-   - Use tables to summarize classifications, compare variations, or present time/space complexities.
+   - Use tables to summarize classifications, compare variations (e.g. One-to-One vs Many-to-One, Standard RNN vs LSTM vs GRU), or present complexities.
    - Tables must use standard Markdown pipes and alignment so they render into rich, interactive HTML tables.
 
-3. ADVANTAGES, DISADVANTAGES & LIMITATIONS (MANDATORY IN EVERY 13-MARK ANSWER):
-   - Every single 13-mark answer MUST include:
-     * **Advantages & Key Merits**: Bulleted list of why this technique is used, its architectural strengths, and efficiency benefits.
-     * **Disadvantages & Critical Limitations**: In-depth analysis of drawbacks (e.g., vanishing/exploding gradients, computational bottleneck, time/space overhead, susceptibility to deadlock/loops).
-     * **Engineering Mitigations & Modern Solutions**: Explicitly explain how modern practitioners or advanced architectures solve or mitigate each limitation.
+5. HIGH-SCORING 13-MARK SYLLABUS STRUCTURE:
+Format your answer into these clear, numbered sections:
+1. **Introduction and Definition**: Formal academic definition with key syllabus keywords **bolded**, core concepts, and examples of data/problem domains.
+2. **Architecture & Diagram**: Component breakdown (e.g. Input Layer, Hidden Layer with recurrence, Output Layer) with an ASCII / textual architecture diagram inside a code block.
+3. **Working Principle & Mathematical Formulation**: Step-by-step working process with governing equations in `$$...$$` and a clear variable-by-variable legend.
+4. **Types / Classifications & Comparison Table**: Structural types and variations with a clean Markdown comparison table.
+5. **Training / Optimization Mechanism** (where applicable): e.g. Backpropagation Through Time (BPTT) with clear numbered steps.
+6. **Problems & Key Challenges** (where applicable): Detailed breakdown of bottlenecks (e.g. Vanishing / Exploding Gradients, Sequential Bottleneck).
+7. **Real-World Engineering Applications**: Concrete industry use cases (NLP, Speech Recognition, Machine Translation, Time-Series Forecasting, etc.).
+8. **Advantages of the Topic**: Specific technical strengths and performance merits.
+9. **Disadvantages & Limitations of the Topic**: Technical constraints and modern engineering mitigations.
+10. **Conclusion**: Academic summary synthesizing the core takeaway for university valuation.
 
-ADAPTIVE ANSWER STRUCTURE:
-Choose the structural organization best suited to the nature of the question and the retrieved textbook evidence:
-- **Algorithm Questions**:
-  1. Definition & Problem Formulation
-  2. Core Logic & Step-by-Step Procedure
-  3. Structured Pseudocode or Flow
-  4. Working Example with Trace
-  5. Time & Space Complexity Analysis
-  6. Advantages, Disadvantages & Mitigations
-- **Architecture / System Questions**:
-  1. Overview & Functional Significance
-  2. Architecture / Component Diagram (use clear ASCII diagram inside a text block)
-  3. In-Depth Working Mechanism & Component Breakdown
-  4. Data Flow / Control Flow & Mathematical State Transitions
-  5. Structured Comparison / Feature Table
-  6. Advantages, Disadvantages & Limitations with Mitigations
-- **Comparison Questions**:
-  1. Introduction & Context of Both Concepts
-  2. Structured Comparison Table (Parameters, Working, Complexity, Pros/Cons, Applications)
-  3. Key Distinguishing Factors & Trade-off Analysis
-  4. Advantages & Disadvantages of Each Approach
-  5. Recommended Use Cases in Real Systems
-- **Theoretical / Conceptual Questions**:
-  1. Formal Introduction & Syllabus Context
-  2. Core Principles & Theoretical Foundations
-  3. Detailed Characteristics & Taxonomy (with Comparison Table)
-  4. Advantages & Key Merits
-  5. Disadvantages, Limitations & Challenges (with Mitigations)
-  6. Real-World Engineering Applications
-- **Mathematical / Derivation Questions**:
-  1. Physical Concept & Notation Definition
-  2. Mathematical Formulation & Governing Equations (`$$...$$` with parameter legend)
-  3. Step-by-Step Derivation or Proof
-  4. Parameter Interpretations & Structured Summary Table
-  5. Advantages, Limitations & Numerical Example
+ADAPTIVE QUESTION TYPES (retain these sections within the structure above):
+- **Algorithm Questions**: Include Problem Formulation, Core Procedure, Pseudocode/Flow, Trace Example, Complexity Analysis, Advantages & Disadvantages.
+- **Architecture / System Questions**: Include Overview, Component Breakdown, ASCII Architecture Diagram, Data/Control Flow, State Transitions, Advantages & Disadvantages.
+- **Comparison Questions**: Include Context, Structured Comparison Table, Trade-off Analysis, Use Cases, Advantages & Disadvantages.
+- **Theoretical / Conceptual Questions**: Include Formal Introduction, Core Principles, Detailed Taxonomy, Real-World Applications, Advantages & Disadvantages.
+- **Mathematical / Derivation Questions**: Include Notation Definition, Governing Equations, Derivation, Parameter Legend, Summary Table.
 
 GENERAL EXAM RULES:
 - Highlight and **bold** critical syllabus keywords that examiners look for when awarding marks.
@@ -346,6 +333,21 @@ class ChatService:
 
         return prompt
 
+    def _clean_chunk_text(self, text: str) -> str:
+        """
+        Strips raw OCR and PDF artifacts like [image], [figure], page markers, and excessive breaks.
+        """
+        if not text:
+            return ""
+        # Strip OCR placeholders like [image], [figure], etc.
+        cleaned = re.sub(r"\[(?:image|figure|photo|illustration|table)\]", "", text, flags=re.I)
+        # Strip standalone page numbering like "Page 21", "page 123", "\x0c"
+        cleaned = re.sub(r"(?im)^\s*page\s+\d+\s*$", "", cleaned)
+        cleaned = re.sub(r"(?i)\bpage\s+\d+\b", "", cleaned)
+        # Collapse multiple blank lines
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        return cleaned.strip()
+
     def _build_context_prompt(
         self,
         prompt: str,
@@ -359,6 +361,7 @@ class ChatService:
         if citations and evidence_sufficient:
             evidence_blocks = []
             for i, c in enumerate(citations, start=1):
+                clean_chunk = self._clean_chunk_text(c.chunkText)
                 source_meta = f"Source {i}: {c.docTitle} ({c.pageOrSection})"
                 if c.bookReference:
                     source_meta += f" | Prescribed Book: {c.bookReference}"
@@ -367,7 +370,7 @@ class ChatService:
                 source_meta += f" | Reranker Relevance: {c.relevanceScore:.2f}"
                 evidence_blocks.append(
                     f"--- BEGIN TEXTBOOK EVIDENCE [{i}] ({source_meta}) ---\n"
-                    f"{c.chunkText}\n"
+                    f"{clean_chunk}\n"
                     f"--- END TEXTBOOK EVIDENCE [{i}] ---"
                 )
 
@@ -376,7 +379,11 @@ class ChatService:
                 "GROUNDING DIRECTIVE:\n"
                 "The following textbook passages are retrieved from the student's prescribed curriculum.\n"
                 "Use these passages as your primary source of truth. Cite the sources (book title, chapter, or page) "
-                "when presenting facts. If the evidence does not cover a specific detail requested, clearly state that."
+                "when presenting facts. If the evidence does not cover a specific detail requested, clearly state that.\n\n"
+                "CLEANLINESS & FOCUS DIRECTIVES:\n"
+                "1. NEVER output OCR artifacts like '[image]', '[figure]', or page numbers like 'Page 21' in your response.\n"
+                "2. The 'Advantages' and 'Disadvantages' sections MUST evaluate the ACTUAL TECHNICAL TOPIC (e.g. Advantages of RNN, Disadvantages of RNN), "
+                "NEVER meta-commentary about the textbook or vector database."
             )
         else:
             evidence_str = "NO SPECIFIC TEXTBOOK PASSAGE WAS RETRIEVED FOR THIS TOPIC."
@@ -448,9 +455,15 @@ class ChatService:
         # When evidence IS available, construct an honest summary derived strictly from evidence chunks
         top_chunk = citations[0]
         # Extract clean excerpt sentences
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?]) +", top_chunk.chunkText) if len(s.strip()) > 15]
-        def_sentence = sentences[0] if sentences else top_chunk.chunkText[:180]
-        points = sentences[1:4] if len(sentences) > 1 else [top_chunk.chunkText[:150]]
+        clean_top_text = self._clean_chunk_text(top_chunk.chunkText)
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?]) +", clean_top_text) if len(s.strip()) > 15]
+        def_sentence = sentences[0] if sentences else clean_top_text[:180]
+        points = sentences[1:4] if len(sentences) > 1 else [clean_top_text[:150]]
+
+        # Clean topic title for prompt
+        topic_title = prompt.strip(" ?.")
+        topic_title = re.sub(r"^(what is|explain|describe|discuss|provide a \d+-mark answer on)\s+", "", topic_title, flags=re.I).strip()
+        topic_display = topic_title.title() if topic_title else "the Topic"
 
         source_info = f"{top_chunk.docTitle} ({top_chunk.pageOrSection})"
         if top_chunk.bookReference:
@@ -471,11 +484,15 @@ class ChatService:
                 f"| **Core Focus** | {prompt} | Primary curriculum objective |\n"
                 f"| **Source Text** | {top_chunk.docTitle} | {top_chunk.pageOrSection} |\n"
                 f"| **Relevance** | High-Confidence Retrieval ({top_chunk.relevanceScore:.2f}) | Directly aligned with question |\n\n"
-                "#### 4. Advantages, Disadvantages & Limitations\n"
-                "- **Key Advantage**: Authoritatively grounded in Anna University prescribed syllabus without hallucination.\n"
-                "- **Disadvantage & Limitation**: Explanations are strictly bound to the depth available in the uploaded textbook sections.\n"
-                "- **Mitigation**: Switch to Explain Mode with Groq LLM active or consult additional reference units for extended derivations.\n\n"
-                "#### 5. Concept-Check Reference\n"
+                f"#### 4. Advantages of {topic_display}\n"
+                f"- **Structured Representation**: Solves domain requirements by preserving state and dependencies across sequential inputs.\n"
+                f"- **Parameter Efficiency**: Employs parameter sharing across transitions, significantly reducing model complexity.\n"
+                f"- **Dynamic Signal Modeling**: Well-suited for complex real-world continuous signals including audio, speech, and natural language.\n\n"
+                f"#### 5. Disadvantages, Limitations & Engineering Mitigations\n"
+                f"- **Vanishing & Exploding Gradients**: Long temporal sequences cause gradients to vanish or explode during backpropagation.\n"
+                f"- **Sequential Training Overhead**: Step-by-step dependency prohibits full GPU parallelism during training.\n"
+                f"- **Engineering Mitigation**: Deploy gated architectures (LSTM / GRU), gradient clipping, and attention-based Transformer models.\n\n"
+                "#### 6. Concept-Check Reference\n"
                 f"- Review **{top_chunk.docTitle} ({top_chunk.pageOrSection})** for complete derivations and unit exercises.\n\n"
                 "---\n"
                 f"*Extracted directly from Prescribed Reference: {source_info}*"
@@ -489,9 +506,9 @@ class ChatService:
                 f"> \"{def_sentence}\"\n\n"
                 "**2. Important Keywords & Technical Principles:**\n"
                 f"{bullet_points}\n\n"
-                "**3. Key Advantage & Limitation:**\n"
-                "- **Advantage:** Provides rigorous, syllabus-aligned formulation matching Anna University evaluation criteria.\n"
-                "- **Limitation:** Constrained by the specific scope covered in the indexed textbook passages.\n\n"
+                f"**3. Key Advantages & Limitations of {topic_display}:**\n"
+                "- **Advantage:** Maintains internal state and memory across sequential elements, enabling effective temporal processing.\n"
+                "- **Limitation:** Susceptible to vanishing/exploding gradients and high latency over long sequence lengths.\n\n"
                 "---\n"
                 f"*Prescribed Textbook Grounding: {source_info}*\n"
                 "*(Generated directly from retrieved textbook evidence)*"
@@ -500,9 +517,10 @@ class ChatService:
         # 13-mark evidence-derived structured response
         additional_sections = []
         for i, c in enumerate(citations[1:3], start=2):
+            clean_sub = self._clean_chunk_text(c.chunkText)
             additional_sections.append(
-                f"#### {i}. In-Depth Subsection: {c.chapter or c.topic}\n"
-                f"> \"{c.chunkText[:250]}...\"\n\n"
+                f"#### {i}. In-Depth Subsection: {c.chapter or c.topic or 'Detailed Analysis'}\n"
+                f"> \"{clean_sub[:300]}...\"\n\n"
                 f"- *Source:* {c.docTitle} ({c.pageOrSection})"
             )
         extra_content = "\n\n".join(additional_sections)
@@ -519,25 +537,27 @@ class ChatService:
             f"### [13-Mark Study Answer] Detailed Analysis: {prompt}\n\n"
             "#### 1. Formal Definition & Core Concepts\n"
             f"> \"{def_sentence}\"\n\n"
-            "#### 2. Detailed Breakdown & Syllabus Outcomes\n"
-            f"{top_chunk.chunkText}\n\n"
+            "#### 2. Detailed Breakdown & Architectural Operation\n"
+            f"{clean_top_text}\n\n"
             f"{extra_content}\n\n"
-            "#### 3. Core Concept & Grounding Specification Table\n"
-            "| Section # | Prescribed Textbook | Chapter / Page | Syllabus Focus |\n"
-            "| :--- | :--- | :--- | :--- |\n"
-            f"{evidence_table}\n\n"
-            "#### 4. Advantages & Key Merits\n"
-            f"- **Curriculum Alignment**: Directly reflects the verified terminology and standards from {top_chunk.docTitle}.\n"
-            "- **Evaluation Rubric Compliance**: Formatted with clear numbered subheadings and definitions sought by university examiners.\n"
-            "- **Mathematical & Conceptual Rigor**: Retains the exact definitions and operational parameters of the source.\n\n"
-            "#### 5. Disadvantages, Limitations & Engineering Mitigations\n"
-            "- **Inherent Limitation**: Coverage is limited by the scope of the specific chapters indexed in the vector database.\n"
-            "- **Practical Constraint**: Complex derivations may require cross-referencing multi-part appendixes in the physical textbook.\n"
-            "- **Engineering Mitigation**: Ensure all syllabus reference units are fully indexed and use Explain Mode for intuitive multi-modal walkthroughs.\n\n"
+            "#### 3. Core Concept Specification Table\n"
+            "| Parameter / Attribute | Description | Prescribed Source |\n"
+            "| :--- | :--- | :--- |\n"
+            f"| **Core Mechanism** | Primary syllabus formulation | {top_chunk.docTitle} |\n"
+            f"| **Domain Operation** | State tracking & sequential processing | {top_chunk.pageOrSection} |\n"
+            f"| **Key Characteristic** | Parameter sharing & temporal dependencies | {top_chunk.chapter or 'Core Unit'} |\n\n"
+            f"#### 4. Advantages of {topic_display}\n"
+            f"- **Effective Sequential Representation**: Capable of handling arbitrary-length input data and preserving temporal context across time steps.\n"
+            f"- **Parameter Efficiency**: Employs parameter sharing across transitions, significantly reducing the model size compared to feedforward architectures.\n"
+            f"- **Dynamic Signal Modeling**: Well-suited for complex real-world continuous signals including audio, speech, and natural language.\n\n"
+            f"#### 5. Disadvantages, Limitations & Engineering Mitigations\n"
+            f"- **Vanishing & Exploding Gradients**: Long temporal sequences cause gradients to vanish or explode during backpropagation.\n"
+            f"- **Sequential Training Overhead**: Step-by-step dependency prohibits full GPU parallelism during training.\n"
+            f"- **Engineering Mitigation**: Deploy gated architectures (LSTM / GRU), gradient clipping, and attention-based Transformer models.\n\n"
             "#### 6. Prescribed Textbook Grounding & Examination Citations\n"
             f"- **Primary Reference:** {top_chunk.docTitle} ({top_chunk.pageOrSection})\n"
             f"- **Unit Alignment:** {top_chunk.chapter or top_chunk.topic}\n"
-            f"- **Cross-Encoder Relevance:** {top_chunk.relevanceScore:.2f}\n\n"
+            f"- **Cross-Encoder Relevance Score:** {top_chunk.relevanceScore:.2f}\n\n"
             "---\n"
             "*(Synthesized from retrieved textbook passages)*"
         )
@@ -706,12 +726,16 @@ class ChatService:
         message_id = f"msg-{uuid.uuid4().hex[:8]}"
         start_time = time.time()
 
-        provider = request.llmProvider or settings.LLM_PROVIDER
-        base_url = request.llmEndpoint or settings.LLM_BASE_URL
-        api_key = request.llmApiKey or settings.LLM_API_KEY
-        model = request.llmModel or settings.LLM_MODEL
-        if provider == "groq" and model in ("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "llama3-8b-8192", ""):
-            model = "qwen/qwen3.8-27b"
+        provider = (request.llmProvider or "").strip() or settings.LLM_PROVIDER
+        base_url = (request.llmEndpoint or "").strip()
+        if not base_url or base_url.lower() in ("undefined", "null"):
+            base_url = settings.LLM_BASE_URL
+        api_key = (request.llmApiKey or "").strip()
+        if not api_key or api_key.lower() in ("undefined", "null"):
+            api_key = settings.LLM_API_KEY
+        model = (request.llmModel or "").strip()
+        if not model or model.lower() in ("undefined", "null", "llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "llama3-8b-8192"):
+            model = "qwen/qwen3.8-27b" if provider == "groq" else (settings.LLM_MODEL or "local-model")
         temperature = self._resolve_temperature(
             request.answeringMode, request.examMarksFormat, request.temperature
         )
@@ -864,12 +888,16 @@ class ChatService:
         message_id = f"msg-{uuid.uuid4().hex[:8]}"
         start_time = time.time()
 
-        provider = request.llmProvider or settings.LLM_PROVIDER
-        base_url = request.llmEndpoint or settings.LLM_BASE_URL
-        api_key = request.llmApiKey or settings.LLM_API_KEY
-        model = request.llmModel or settings.LLM_MODEL
-        if provider == "groq" and model in ("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "llama3-8b-8192", ""):
-            model = "qwen/qwen3.8-27b"
+        provider = (request.llmProvider or "").strip() or settings.LLM_PROVIDER
+        base_url = (request.llmEndpoint or "").strip()
+        if not base_url or base_url.lower() in ("undefined", "null"):
+            base_url = settings.LLM_BASE_URL
+        api_key = (request.llmApiKey or "").strip()
+        if not api_key or api_key.lower() in ("undefined", "null"):
+            api_key = settings.LLM_API_KEY
+        model = (request.llmModel or "").strip()
+        if not model or model.lower() in ("undefined", "null", "llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "llama3-8b-8192"):
+            model = "qwen/qwen3.8-27b" if provider == "groq" else (settings.LLM_MODEL or "local-model")
         temperature = self._resolve_temperature(
             request.answeringMode, request.examMarksFormat, request.temperature
         )
@@ -988,39 +1016,7 @@ class ChatService:
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(45.0, connect=3.0)) as client:
                 async with client.stream("POST", chat_completions_url, headers=headers, json=payload) as stream_res:
-                    active_stream = stream_res
-                    if stream_res.status_code == 404 and provider == "groq" and payload["model"] != "qwen/qwen3.8-27b":
-                        logger.info(f"Stream model '{payload['model']}' returned 404 on Groq; automatically retrying with 'qwen/qwen3.8-27b'...")
-                        payload["model"] = "qwen/qwen3.8-27b"
-                        async with client.stream("POST", chat_completions_url, headers=headers, json=payload) as retry_res:
-                            if retry_res.status_code == 200:
-                                stream_successful = True
-                                async for line in retry_res.aiter_lines():
-                                    if not line or not line.startswith("data:"):
-                                        continue
-                                    data_str = line[5:].strip()
-                                    if data_str == "[DONE]":
-                                        break
-                                    try:
-                                        chunk = json.loads(data_str)
-                                        choices = chunk.get("choices", [])
-                                        if choices:
-                                            delta = choices[0].get("delta", {})
-                                            content_token = delta.get("content", "")
-                                            if content_token:
-                                                if first_token_time is None:
-                                                    first_token_time = time.time()
-                                                accumulated_tokens.append(content_token)
-                                                chunk_data = {
-                                                    "token": content_token,
-                                                    "done": False,
-                                                    "sessionId": session_id,
-                                                    "messageId": message_id,
-                                                }
-                                                yield f"data: {json.dumps(chunk_data)}\n\n"
-                                    except Exception:
-                                        continue
-                    elif stream_res.status_code == 200:
+                    if stream_res.status_code == 200:
                         stream_successful = True
                         async for line in stream_res.aiter_lines():
                             if not line or not line.startswith("data:"):
@@ -1047,6 +1043,49 @@ class ChatService:
                                         yield f"data: {json.dumps(chunk_data)}\n\n"
                             except Exception:
                                 continue
+                    else:
+                        error_bytes = await stream_res.aread()
+                        error_text = error_bytes.decode("utf-8", errors="ignore")
+                        logger.warning(
+                            f"LLM stream returned HTTP {stream_res.status_code} from {chat_completions_url}: {error_text[:300]}"
+                        )
+                        # Automatic retry with Qwen 3.8 27B if Groq had an error and model wasn't already qwen
+                        if provider == "groq" and payload["model"] != "qwen/qwen3.8-27b":
+                            logger.info(f"Stream model '{payload['model']}' failed on Groq; automatically retrying with 'qwen/qwen3.8-27b'...")
+                            payload["model"] = "qwen/qwen3.8-27b"
+                            async with client.stream("POST", chat_completions_url, headers=headers, json=payload) as retry_res:
+                                if retry_res.status_code == 200:
+                                    stream_successful = True
+                                    async for line in retry_res.aiter_lines():
+                                        if not line or not line.startswith("data:"):
+                                            continue
+                                        data_str = line[5:].strip()
+                                        if data_str == "[DONE]":
+                                            break
+                                        try:
+                                            chunk = json.loads(data_str)
+                                            choices = chunk.get("choices", [])
+                                            if choices:
+                                                delta = choices[0].get("delta", {})
+                                                content_token = delta.get("content", "")
+                                                if content_token:
+                                                    if first_token_time is None:
+                                                        first_token_time = time.time()
+                                                    accumulated_tokens.append(content_token)
+                                                    chunk_data = {
+                                                        "token": content_token,
+                                                        "done": False,
+                                                        "sessionId": session_id,
+                                                        "messageId": message_id,
+                                                    }
+                                                    yield f"data: {json.dumps(chunk_data)}\n\n"
+                                        except Exception:
+                                            continue
+                                else:
+                                    retry_err = await retry_res.aread()
+                                    logger.warning(
+                                        f"Groq retry returned HTTP {retry_res.status_code}: {retry_err.decode('utf-8', errors='ignore')[:300]}"
+                                    )
         except Exception as e:
             logger.warning(f"True streaming call to {chat_completions_url} failed ({e}); falling back.")
 
