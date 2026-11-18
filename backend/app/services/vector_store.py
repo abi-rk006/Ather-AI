@@ -233,11 +233,12 @@ class VectorStoreService:
 
         try:
             if is_cloud_config:
-                logger.info("Connecting to Chroma Cloud managed vector database...")
+                logger.info(f"Connecting to Chroma Cloud managed vector database (host: {settings.CHROMA_HOST}, tenant: {settings.CHROMA_TENANT})...")
                 self._client = chromadb.CloudClient(
                     tenant=settings.CHROMA_TENANT,
                     database=settings.CHROMA_DATABASE,
                     api_key=settings.CHROMA_API_KEY,
+                    cloud_host=getattr(settings, "CHROMA_HOST", "api.trychroma.com") or "api.trychroma.com",
                 )
                 self._is_cloud = True
             else:
