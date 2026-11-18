@@ -12,7 +12,13 @@ import type {
 } from '../types';
 import { INITIAL_SETTINGS } from './mockData';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const getBaseApiUrl = (): string => {
+  const envUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').trim();
+  const cleaned = envUrl.replace(/\/+$/, '');
+  return cleaned.endsWith('/api') ? cleaned : `${cleaned}/api`;
+};
+
+const API_BASE_URL = getBaseApiUrl();
 
 class ApiClient {
   constructor() {

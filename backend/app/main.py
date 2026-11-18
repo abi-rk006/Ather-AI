@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
@@ -59,6 +59,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def ensure_api_prefix_compatibility(request: Request, call_next):
+    """
+    Transparently rewrites routes missing '/api' (e.g. /health, /auth/admin-login, /subjects)
+    to '/api/...' so frontends deployed with either VITE_API_URL or bare origins work seamlessly.
+    """
+    path = request.url.path
+    if not path.startswith("/api/") and path not in ("/docs", "/openapi.json", "/redoc", "/"):
+        for prefix in ("/health", "/auth", "/chat", "/retrieval", "/documents", "/exports", "/settings", "/subjects"):
+            if path == prefix or path.startswith(f"{prefix}/"):
+                request.scope["path"] = f"/api{path}"
+                break
+    return await call_next(request)
+
+
 # Register All API Routers
 app.include_router(auth_router)
 app.include_router(chat_router)
@@ -69,10 +85,11 @@ app.include_router(settings_router)
 app.include_router(subjects_router)
 
 
+@app.get("/health", tags=["Health"])
 @app.get("/api/health", tags=["Health"])
 async def health_check():
     """
-    Health check endpoint probed by frontend ApiClient.
+    Health check endpoint probed by Render health checks and frontend ApiClient.
     """
     return {
         "status": "healthy",
