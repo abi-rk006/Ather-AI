@@ -99,8 +99,26 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           provider: settings.llmProvider,
           endpoint: settings.llmBaseUrl,
           apiKey: settings.primaryApiKey,
+          fallbackApiKey: settings.fallbackEnabled ? settings.secondaryApiKey : undefined,
           model: settings.selectedModel,
+          fallbackModel: settings.fallbackEnabled ? settings.secondaryModel : undefined,
+          fallbackEndpoint: settings.fallbackEnabled ? settings.secondaryBaseUrl : undefined,
+          fallbackProvider: settings.fallbackEnabled ? settings.secondaryProvider : undefined,
           temperature: settings.temperature,
+        },
+        (earlyCitations) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMsgId ? { ...msg, citations: earlyCitations } : msg
+            )
+          );
+        },
+        (notice) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMsgId ? { ...msg, statusNotice: notice } : msg
+            )
+          );
         }
       );
 
@@ -114,6 +132,7 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 tokens: result.telemetry.tokens,
                 tokensPerSec: result.telemetry.tps,
                 ttft: result.telemetry.ttft,
+                statusNotice: result.statusNotice || msg.statusNotice,
                 isStreaming: false,
               }
             : msg

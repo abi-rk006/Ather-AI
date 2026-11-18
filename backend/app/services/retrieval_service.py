@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import List, Optional, Dict, Any, Tuple
 from .embedding_service import embed_texts
 from .vector_store import vector_store
@@ -19,6 +20,87 @@ logger = logging.getLogger("anna_rag.retrieval")
 
 # RRF hyperparameter constant
 RRF_K = 60
+
+
+def _normalize_text_fingerprint(text: str) -> str:
+    """
+    Produces a canonical normalized fingerprint of the text
+    by stripping non-alphanumeric chars, lowercasing, and taking the first 60 words.
+    """
+    words = re.findall(r"\w+", (text or "").lower())
+    return " ".join(words[:60])
+
+
+def _extract_word_set(text: str) -> set:
+    """Extracts a set of meaningful words (length >= 3) for lexical overlap comparison."""
+    words = re.findall(r"\w+", (text or "").lower())
+    return {w for w in words if len(w) >= 3}
+
+
+def _calculate_jaccard_similarity(words_a: set, words_b: set) -> float:
+    """Calculates Jaccard similarity coefficient between two word sets."""
+    if not words_a or not words_b:
+        return 0.0
+    intersection = len(words_a.intersection(words_b))
+    union = len(words_a.union(words_b))
+    return intersection / union if union > 0 else 0.0
+
+
+def deduplicate_candidate_chunks(
+    candidates: List[Dict[str, Any]],
+    jaccard_threshold: float = 0.60,
+) -> List[Dict[str, Any]]:
+    """
+    Multi-stage semantic & lexical deduplication:
+    1. Parent-ID Deduplication: Suppresses overlapping child chunks sharing the same parent_id.
+    2. Normalized Content Fingerprint: Removes exact / whitespace-identical duplicate passages
+       originating from duplicate document uploads (e.g. 'Deep Learning' vs 'Deep Learning Book').
+    3. Jaccard Token Overlap: Eliminates near-duplicate passages that share >60% identical vocabulary
+       or heavy substring overlap across different uploads or editions.
+    """
+    deduped: List[Dict[str, Any]] = []
+    seen_parents = set()
+    seen_fingerprints = set()
+    accepted_word_sets: List[set] = []
+
+    for cand in candidates:
+        text = (cand.get("text") or "").strip()
+        if not text or len(text) < 15:
+            continue
+
+        meta = cand.get("metadata", {})
+        parent_id = meta.get("parent_id")
+
+        # Check 1: Same parent_id (within same document)
+        if parent_id and parent_id != "":
+            if parent_id in seen_parents:
+                continue
+
+        # Check 2: Exact / Normalized content fingerprint (cross-document duplicate upload)
+        fingerprint = _normalize_text_fingerprint(text)
+        if fingerprint in seen_fingerprints:
+            continue
+
+        # Check 3: Lexical Jaccard token overlap (near-duplicates / heavy overlap)
+        words = _extract_word_set(text)
+        if len(words) >= 5:
+            is_near_duplicate = False
+            for prev_words in accepted_word_sets:
+                sim = _calculate_jaccard_similarity(words, prev_words)
+                if sim >= jaccard_threshold:
+                    is_near_duplicate = True
+                    break
+            if is_near_duplicate:
+                continue
+
+        # If it passes all checks, accept candidate
+        if parent_id and parent_id != "":
+            seen_parents.add(parent_id)
+        seen_fingerprints.add(fingerprint)
+        accepted_word_sets.append(words)
+        deduped.append(cand)
+
+    return deduped
 
 
 async def vector_search(
@@ -191,18 +273,9 @@ class RetrievalService:
         candidate_list = list(fusion_candidates.values())
         candidate_list.sort(key=lambda x: x["rrf_score"], reverse=True)
 
-        # 4. Deduplication
-        # If overlapping chunks share the same parent_id, retain only the highest-ranked chunk for that parent
-        deduped_candidates: List[Dict[str, Any]] = []
-        seen_parents = set()
-
-        for cand in candidate_list:
-            parent_id = cand["metadata"].get("parent_id")
-            if parent_id and parent_id != "":
-                if parent_id in seen_parents:
-                    continue
-                seen_parents.add(parent_id)
-            deduped_candidates.append(cand)
+        # 4. Multi-Stage Content & Lexical Deduplication (Pre-Rerank)
+        # Suppresses parent-level overlaps, exact duplicate uploads across titles, and >60% vocabulary near-duplicates
+        deduped_candidates = deduplicate_candidate_chunks(candidate_list, jaccard_threshold=0.60)
 
         # 4b. Neural Cross-Encoder Reranker (Stage 7)
         # Re-scores candidate chunks retrieved from vector + BM25 using joint cross-attention.
@@ -214,7 +287,8 @@ class RetrievalService:
                     top_n=max(len(deduped_candidates), 25),
                 )
                 if reranked_pool:
-                    deduped_candidates = reranked_pool
+                    # Enforce post-rerank diversity deduplication to prevent adjacent duplicate chunks
+                    deduped_candidates = deduplicate_candidate_chunks(reranked_pool, jaccard_threshold=0.60)
             except Exception as e:
                 logger.warning(f"Neural reranker encountered error; proceeding with RRF ordering: {e}")
 
@@ -323,7 +397,13 @@ class RetrievalService:
             resp = await self.search_retrieval_mode(req)
 
             chunks: List[DocumentChunk] = []
+            seen_signatures = set()
             for item in resp.results:
+                sig = _normalize_text_fingerprint(item.text)
+                if sig in seen_signatures:
+                    continue
+                seen_signatures.add(sig)
+
                 page_str = (
                     f"pp. {item.source.page_start}-{item.source.page_end}"
                     if item.source.page_start

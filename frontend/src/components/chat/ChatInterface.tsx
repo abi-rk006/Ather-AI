@@ -17,7 +17,7 @@ export const ChatInterface: React.FC = () => {
     answeringMode,
     setAnsweringMode,
   } = useChat();
-  const { isDocDrawerOpen, setIsDocDrawerOpen, setSelectedCitation, isSidebarOpen } = useApp();
+  const { isDocDrawerOpen, setIsDocDrawerOpen, setSelectedCitation, isSidebarOpen, setCurrentView } = useApp();
   const { settings, updateSettings } = useSettings();
 
   const [isParamsPanelOpen, setIsParamsPanelOpen] = useState(false);
@@ -106,6 +106,10 @@ My Question: What are the primary technical considerations, definitions, and imp
     {
       icon: 'school',
       text: 'Provide a 13-mark exam answer on Two-Phase Locking Protocol (CS3391 / CS8492)',
+    },
+    {
+      icon: 'neurology',
+      text: 'Explain CNN architecture and working with neat diagram (AD3501)',
     },
     {
       icon: 'psychology',
@@ -465,6 +469,52 @@ My Question: What are the primary technical considerations, definitions, and imp
 
                 {/* Main Card with architectural response */}
                 <div className="bg-surface-container-lowest p-3 sm:p-space-lg rounded-2xl shadow-sm border border-outline-variant/20 flex flex-col gap-space-md">
+                  {/* Status Notice Banner if token limit exceeded, model unavailable, or failover triggered */}
+                  {message.statusNotice && (
+                    <div
+                      className={`p-3 rounded-xl border flex items-start gap-2.5 text-xs font-body transition-all ${
+                        message.statusNotice.type === 'error'
+                          ? 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-200'
+                          : message.statusNotice.type === 'info'
+                          ? 'bg-blue-500/10 border-blue-500/30 text-blue-800 dark:text-blue-200'
+                          : 'bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-200'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">
+                        {message.statusNotice.type === 'error'
+                          ? 'error'
+                          : message.statusNotice.type === 'info'
+                          ? 'swap_calls'
+                          : 'warning'}
+                      </span>
+                      <div className="flex-1 flex flex-col gap-0.5 min-w-0">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="font-bold font-headline">{message.statusNotice.title}</span>
+                          {message.statusNotice.model && (
+                            <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-surface-container font-semibold opacity-90">
+                              Target: {message.statusNotice.model}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] opacity-90 leading-relaxed">
+                          {message.statusNotice.detail || message.statusNotice.message}
+                        </p>
+                        {message.statusNotice.fallbackModel && (
+                          <span className="text-[10px] font-semibold text-primary mt-0.5 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                            <span>Switched seamlessly to fallback model: <code>{message.statusNotice.fallbackModel}</code></span>
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setCurrentView('settings')}
+                        className="shrink-0 px-2.5 py-1 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-[10px] font-label font-semibold border border-outline-variant/30 text-on-surface cursor-pointer"
+                      >
+                        Settings →
+                      </button>
+                    </div>
+                  )}
+
                   {/* Dynamic Header Box based on Mode */}
                   {isRetrievalMode ? (
                     /* RETRIEVAL MODE ACTIONS & PASSAGES */
@@ -541,7 +591,26 @@ My Question: What are the primary technical considerations, definitions, and imp
                   )}
 
                   {/* Render Message Body Markdown with LaTeX and Tables */}
-                  <MarkdownRenderer content={message.content} />
+                  {message.isStreaming && !message.content ? (
+                    <div className="flex flex-col gap-3 py-3 animate-in fade-in duration-300">
+                      <div className="flex items-center gap-2 text-primary font-label text-xs font-semibold">
+                        <span className="w-2.5 h-2.5 rounded-full bg-primary animate-ping" />
+                        <span>Synthesizing Anna University study answer from prescribed textbooks...</span>
+                      </div>
+                      <div className="space-y-2.5">
+                        <div className="h-3.5 bg-surface-container-high/60 rounded-md w-3/4 animate-pulse" />
+                        <div className="h-3.5 bg-surface-container-high/60 rounded-md w-5/6 animate-pulse" />
+                        <div className="h-3.5 bg-surface-container-high/60 rounded-md w-2/3 animate-pulse" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <MarkdownRenderer content={message.content} />
+                      {message.isStreaming && (
+                        <span className="inline-block w-1.5 h-4 bg-primary animate-pulse ml-1 align-baseline rounded-xs" />
+                      )}
+                    </div>
+                  )}
 
                   {/* Grounding Sources Chips Bar */}
                   {message.citations && message.citations.length > 0 && (

@@ -1,3 +1,4 @@
+import pytest
 import asyncio
 import os
 import sys
@@ -13,12 +14,13 @@ from app.services.retrieval_service import retrieval_service, vector_search
 from app.rag.chunking.models import ChildChunk
 
 
+@pytest.mark.anyio
 async def test_jina_chroma_pipeline():
     print("=== Testing Jina API + Chroma Cloud Integration ===")
-    print(f"JINA_EMBEDDING_MODEL: {settings.JINA_EMBEDDING_MODEL}")
-    print(f"JINA_EMBEDDING_DIMENSIONS: {settings.JINA_EMBEDDING_DIMENSIONS}")
-    print(f"CHROMA_COLLECTION_NAME: {settings.CHROMA_COLLECTION_NAME}")
-    print(f"Chroma Cloud active: {vector_store.is_cloud}")
+        print(f"JINA_EMBEDDING_MODEL: {settings.JINA_EMBEDDING_MODEL}")
+        print(f"JINA_EMBEDDING_DIMENSIONS: {settings.JINA_EMBEDDING_DIMENSIONS}")
+        print(f"CHROMA_COLLECTION_NAME: {settings.CHROMA_COLLECTION_NAME}")
+        print(f"Chroma Cloud active: {vector_store.is_cloud}")
 
     # 1. Test Embeddings
     test_texts = [

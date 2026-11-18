@@ -60,6 +60,15 @@ class FirestoreService:
                 "semester": 3,
                 "textbook_ids": ["doc-korth-dbms"],
                 "description": "Anna University Regulation 2021: Data Modeling, Query Optimization, and NoSQL."
+            },
+            "ad3501": {
+                "subject_id": "ad3501",
+                "code": "AD3501",
+                "name": "Deep Learning",
+                "department": "AIDS",
+                "semester": 5,
+                "textbook_ids": ["doc-goodfellow-dl"],
+                "description": "Anna University Regulation 2021: Deep Feedforward Networks, CNN, RNN, Autoencoders, Optimization & Evaluation."
             }
         }
         self._mem_documents: Dict[str, Dict[str, Any]] = {
@@ -92,6 +101,21 @@ class FirestoreService:
                 "chunk_count": 620,
                 "parent_chunk_count": 128,
                 "summary": "Core textbook covering relational transactions, ACID properties, and B+ trees."
+            },
+            "doc-goodfellow-dl": {
+                "document_id": "doc-goodfellow-dl",
+                "owner_id": "system",
+                "subject_id": "ad3501",
+                "filename": "Deep_Learning_Goodfellow_MIT.pdf",
+                "file_type": "pdf",
+                "category": "ai",
+                "source_type": "primary_textbook",
+                "storage_path": "system/textbooks/Deep_Learning_Goodfellow_MIT.pdf",
+                "processing_status": "indexed",
+                "size_bytes": 22400000,
+                "chunk_count": 890,
+                "parent_chunk_count": 175,
+                "summary": "Primary reference textbook for Anna University AD3501 Deep Learning curriculum."
             }
         }
         self._mem_sessions: Dict[str, Dict[str, Any]] = {}

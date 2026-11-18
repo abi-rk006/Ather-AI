@@ -23,6 +23,7 @@ export const RetrievalStudio: React.FC = () => {
 
   const subjects = [
     { id: 'general', code: 'ALL', name: 'All Subjects (Universal Search)' },
+    { id: 'ad3501', code: 'AD3501', name: 'Deep Learning (Reg 2021)' },
     { id: 'cs3391', code: 'CS3391', name: 'Database Management Systems (Reg 2021)' },
     { id: 'ad3391', code: 'AD3391', name: 'Database Design & Management (Reg 2021)' },
     { id: 'cs8591', code: 'CS8591', name: 'Computer Networks (Reg 2017)' },

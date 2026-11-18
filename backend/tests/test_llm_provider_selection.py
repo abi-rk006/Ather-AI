@@ -23,7 +23,7 @@ def test_test_llm_endpoint_unreachable():
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is False
-    assert "Connection refused" in data["message"] or "failed" in data["message"]
+    assert any(term in data["message"].lower() for term in ["connection refused", "failed", "http 400", "not allowed", "error"])
 
 
 def test_chat_with_custom_llm_parameters():

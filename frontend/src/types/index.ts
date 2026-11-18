@@ -35,6 +35,15 @@ export interface Message {
   citations?: Citation[];
   attachments?: { name: string; size: string; type: string }[];
   isStreaming?: boolean;
+  statusNotice?: {
+    type: 'warning' | 'info' | 'error';
+    title: string;
+    message?: string;
+    detail: string;
+    model?: string;
+    fallbackModel?: string;
+    code?: string;
+  };
 }
 
 export interface ChatThread {
@@ -83,13 +92,16 @@ export interface RetrievalSettings {
   chunkOverlap: number;
 }
 
-export type LLMProvider = 'groq' | 'lmstudio' | 'ollama' | 'custom' | 'openai' | 'gemini' | 'anthropic';
+export type LLMProvider = 'groq' | 'lmstudio' | 'ollama' | 'custom' | 'openai' | 'gemini' | 'anthropic' | 'nvidia';
 
 export interface AppSettings {
   llmProvider: LLMProvider;
   llmBaseUrl: string;
   primaryApiKey: string;
   secondaryApiKey: string;
+  secondaryModel?: string;
+  secondaryBaseUrl?: string;
+  secondaryProvider?: LLMProvider;
   fallbackEnabled: boolean;
   selectedModel: string;
   temperature: number;

@@ -13,7 +13,7 @@ interface SettingsContextType {
     provider?: string,
     baseUrl?: string,
     model?: string
-  ) => Promise<{ success: boolean; latencyMs: number; message?: string }>;
+  ) => Promise<{ success: boolean; latencyMs: number; message?: string; modelsAvailable?: string[] }>;
   isSaved: boolean;
 }
 

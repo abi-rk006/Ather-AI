@@ -1,3 +1,4 @@
+import pytest
 import asyncio
 import os
 import sys
@@ -13,13 +14,14 @@ from app.services.retrieval_service import retrieval_service, vector_search
 from app.rag.chunking.models import ChildChunk
 
 
+@pytest.mark.anyio
 async def test_qdrant_docker_pipeline():
     print("=== Testing Jina API + Qdrant Docker Integration ===")
-    print(f"VECTOR_STORE_PROVIDER: {settings.VECTOR_STORE_PROVIDER}")
-    print(f"QDRANT_URL: {settings.QDRANT_URL}")
-    print(f"QDRANT_COLLECTION_NAME: {settings.QDRANT_COLLECTION_NAME}")
-    print(f"Active Provider: {vector_store.provider}")
-    assert vector_store.provider == "qdrant", "Expected Qdrant vector store to be active"
+        print(f"VECTOR_STORE_PROVIDER: {settings.VECTOR_STORE_PROVIDER}")
+        print(f"QDRANT_URL: {settings.QDRANT_URL}")
+        print(f"QDRANT_COLLECTION_NAME: {settings.QDRANT_COLLECTION_NAME}")
+        print(f"Active Provider: {vector_store.provider}")
+        assert vector_store.provider == "qdrant", "Expected Qdrant vector store to be active"
 
     # 1. Test Embeddings
     test_texts = [

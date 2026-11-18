@@ -99,8 +99,20 @@ class ApiClient {
     history: Message[] = [],
     examMarksFormat: ExamMarksFormat = '13-mark',
     onChunk?: (token: string) => void,
-    llmConfig?: { provider?: string; endpoint?: string; apiKey?: string; model?: string; temperature?: number }
-  ): Promise<{ response: string; citations: Citation[]; telemetry: { tokens: number; tps: number; ttft: string } }> {
+    llmConfig?: {
+      provider?: string;
+      endpoint?: string;
+      apiKey?: string;
+      fallbackApiKey?: string;
+      model?: string;
+      fallbackModel?: string;
+      fallbackEndpoint?: string;
+      fallbackProvider?: string;
+      temperature?: number;
+    },
+    onCitations?: (citations: Citation[]) => void,
+    onStatusNotice?: (notice: any) => void
+  ): Promise<{ response: string; citations: Citation[]; telemetry: { tokens: number; tps: number; ttft: string }; statusNotice?: any }> {
     // 1. True SSE Streaming when onChunk callback is active
     if (onChunk) {
       try {
@@ -116,7 +128,11 @@ class ApiClient {
             llmProvider: llmConfig?.provider,
             llmEndpoint: llmConfig?.endpoint,
             llmApiKey: llmConfig?.apiKey,
+            llmFallbackApiKey: llmConfig?.fallbackApiKey,
             llmModel: llmConfig?.model,
+            llmFallbackModel: llmConfig?.fallbackModel,
+            llmFallbackEndpoint: llmConfig?.fallbackEndpoint,
+            llmFallbackProvider: llmConfig?.fallbackProvider,
             temperature: llmConfig?.temperature,
           }),
         });
@@ -127,6 +143,7 @@ class ApiClient {
           let accumulatedResponse = '';
           let finalCitations: Citation[] = [];
           let finalTelemetry = { tokens: 0, tps: 0, ttft: '0ms' };
+          let finalStatusNotice: any = null;
 
           let buffer = '';
           while (true) {
@@ -142,6 +159,18 @@ class ApiClient {
               const jsonStr = trimmed.slice(5).trim();
               try {
                 const parsed = JSON.parse(jsonStr);
+                if (parsed.statusNotice) {
+                  finalStatusNotice = parsed.statusNotice;
+                  if (onStatusNotice) {
+                    onStatusNotice(parsed.statusNotice);
+                  }
+                }
+                if (parsed.citations && Array.isArray(parsed.citations)) {
+                  finalCitations = parsed.citations;
+                  if (onCitations) {
+                    onCitations(parsed.citations);
+                  }
+                }
                 if (parsed.token) {
                   accumulatedResponse += parsed.token;
                   onChunk(parsed.token);
@@ -149,6 +178,7 @@ class ApiClient {
                 if (parsed.done) {
                   if (parsed.citations) finalCitations = parsed.citations;
                   if (parsed.telemetry) finalTelemetry = parsed.telemetry;
+                  if (parsed.statusNotice) finalStatusNotice = parsed.statusNotice;
                 }
               } catch {
                 // Ignore partial chunks
@@ -161,6 +191,7 @@ class ApiClient {
               response: accumulatedResponse,
               citations: finalCitations,
               telemetry: finalTelemetry,
+              statusNotice: finalStatusNotice,
             };
           }
         }
@@ -183,7 +214,11 @@ class ApiClient {
           llmProvider: llmConfig?.provider,
           llmEndpoint: llmConfig?.endpoint,
           llmApiKey: llmConfig?.apiKey,
+          llmFallbackApiKey: llmConfig?.fallbackApiKey,
           llmModel: llmConfig?.model,
+          llmFallbackModel: llmConfig?.fallbackModel,
+          llmFallbackEndpoint: llmConfig?.fallbackEndpoint,
+          llmFallbackProvider: llmConfig?.fallbackProvider,
           temperature: llmConfig?.temperature,
         }),
       });
@@ -413,13 +448,23 @@ class ApiClient {
     }
   }
 
-  async verifyApiKey(key: string, provider: string = 'groq', baseUrl?: string, model?: string): Promise<{ success: boolean; latencyMs: number; message?: string }> {
-    const defaultModel = provider === 'groq' ? 'qwen/qwen3.8-27b' : 'local-model';
+  async verifyApiKey(key: string, provider: string = 'groq', baseUrl?: string, model?: string): Promise<{ success: boolean; latencyMs: number; message?: string; modelsAvailable?: string[] }> {
+    const defaultModel =
+      provider === 'groq'
+        ? 'qwen/qwen3.8-27b'
+        : provider === 'nvidia'
+        ? 'meta/llama-3.3-70b-instruct'
+        : provider === 'gemini'
+        ? 'gemini-2.5-flash'
+        : provider === 'openai'
+        ? 'gpt-4o'
+        : 'local-model';
     const res = await this.testLlmEndpoint(provider, baseUrl || '', key, model || defaultModel);
     return {
       success: res.success,
       latencyMs: res.latencyMs,
       message: res.message,
+      modelsAvailable: res.modelsAvailable,
     };
   }
 }

@@ -18,10 +18,15 @@ class UserPreferences(BaseModel):
     defaultExamMarksFormat: ExamMarksFormat = "13-mark"
     theme: Literal["light", "dark", "system"] = "system"
     selectedModel: str = "qwen/qwen3.8-27b"
+    secondaryModel: Optional[str] = "qwen/qwen3.8-27b"
     temperature: float = 0.2
     llmProvider: str = "groq"
     llmBaseUrl: str = "https://api.groq.com/openai/v1"
+    secondaryProvider: Optional[str] = None
+    secondaryBaseUrl: Optional[str] = None
     llmApiKey: Optional[str] = None
+    llmFallbackApiKey: Optional[str] = None
+    fallbackEnabled: bool = True
     retrieval: RetrievalSettingsModel = Field(default_factory=RetrievalSettingsModel)
 
 
@@ -31,8 +36,13 @@ class UserPreferencesUpdate(BaseModel):
     defaultExamMarksFormat: Optional[ExamMarksFormat] = None
     theme: Optional[Literal["light", "dark", "system"]] = None
     selectedModel: Optional[str] = None
+    secondaryModel: Optional[str] = None
     temperature: Optional[float] = None
     llmProvider: Optional[str] = None
     llmBaseUrl: Optional[str] = None
+    secondaryProvider: Optional[str] = None
+    secondaryBaseUrl: Optional[str] = None
     llmApiKey: Optional[str] = None
+    llmFallbackApiKey: Optional[str] = None
+    fallbackEnabled: Optional[bool] = None
     retrieval: Optional[RetrievalSettingsModel] = None

@@ -206,6 +206,78 @@ def test_api_chat_stream_endpoint():
     assert "citations" in final_event
 
 
+def test_retrieval_deduplication_exact_and_cross_doc():
+    """
+    CRITICAL TEST: Verifies multi-stage deduplication filters cross-document identical
+    passages (e.g. same textbook uploaded twice under different filenames/doc_ids).
+    """
+    from app.services.retrieval_service import deduplicate_candidate_chunks
+
+    chunk1 = {
+        "chunk_id": "doc-b9fb904d#p186#c1",
+        "text": "Page 130 TWO MARKS QUESTION AND ANSWERS 1. What is meant by performance metrics? Evaluating the performance of a Deep learning model is one of the important steps while building an effective ML model. 2. What are the performance metrics used in classification? 1. Accuracy 2. Confusion Matrix 3. Precision 4. Recall 5. F-Score 6. AUC(Area Under the Curve)-ROC",
+        "metadata": {"parent_id": "doc-b9fb904d#p186", "book_reference": "Deep Learning"}
+    }
+    chunk2 = {
+        "chunk_id": "doc-4d0f8054#p186#c1",
+        "text": "Page 130 TWO MARKS QUESTION AND ANSWERS 1. What is meant by performance metrics? Evaluating the performance of a Deep learning model is one of the important steps while building an effective ML model. 2. What are the performance metrics used in classification? 1. Accuracy 2. Confusion Matrix 3. Precision 4. Recall 5. F-Score 6. AUC(Area Under the Curve)-ROC",
+        "metadata": {"parent_id": "doc-4d0f8054#p186", "book_reference": "Deep Learning Book"}
+    }
+    chunk3 = {
+        "chunk_id": "doc-4d0f8054#p106#c1",
+        "text": "UNIT IV MODEL EVALUATION Performance metrics--Baseline Models-Hyperparameters: Manual Hyperparameter-Automatic Hyperparameter-Grid search-Random search-Debugging strategies. 4.1 MODEL EVALUATION Model evaluation is a crucial step in the deep learning process.",
+        "metadata": {"parent_id": "doc-4d0f8054#p106", "book_reference": "Deep Learning Book"}
+    }
+    chunk4 = {
+        "chunk_id": "doc-b9fb904d#p106#c1",
+        "text": "UNIT IV MODEL EVALUATION Performance metrics--Baseline Models-Hyperparameters: Manual Hyperparameter-Automatic Hyperparameter-Grid search-Random search-Debugging strategies. 4.1 MODEL EVALUATION Model evaluation is a crucial step in the deep learning process.",
+        "metadata": {"parent_id": "doc-b9fb904d#p106", "book_reference": "Deep Learning"}
+    }
+    chunk5 = {
+        "chunk_id": "doc-b9fb904d#p109#c1",
+        "text": "Page 79 transfer Learning and Pretrained Models: In some cases, transfer learning and using pretrained models from other tasks or domains can be a valuable approach to improve model performance and reduce the need for extensive training.",
+        "metadata": {"parent_id": "doc-b9fb904d#p109", "book_reference": "Deep Learning"}
+    }
+    chunk6 = {
+        "chunk_id": "doc-4d0f8054#p109#c1",
+        "text": "Page 79 transfer Learning and Pretrained Models: In some cases, transfer learning and using pretrained models from other tasks or domains can be a valuable approach to improve model performance and reduce the need for extensive training.",
+        "metadata": {"parent_id": "doc-4d0f8054#p109", "book_reference": "Deep Learning Book"}
+    }
+
+    candidates = [chunk5, chunk6, chunk3, chunk4, chunk1, chunk2]
+    deduped = deduplicate_candidate_chunks(candidates, jaccard_threshold=0.60)
+    assert len(deduped) == 3, f"Expected 3 unique chunks from 6 duplicates, got {len(deduped)}"
+
+
+def test_retrieval_deduplication_fuzzy_sliding_window():
+    """
+    Verifies that near-duplicate overlapping sliding-window passages (>60% Jaccard) are suppressed.
+    """
+    from app.services.retrieval_service import deduplicate_candidate_chunks
+
+    chunk_a = {
+        "chunk_id": "doc-1#p10#c1",
+        "text": "Convolutional Neural Networks consist of convolutional layers, pooling layers, and fully connected dense layers for image classification.",
+        "metadata": {"parent_id": "doc-1#p10", "book_reference": "Deep Learning"}
+    }
+    # Chunk B has slight variation but >60% token overlap
+    chunk_b = {
+        "chunk_id": "doc-2#p10#c1",
+        "text": "Convolutional Neural Networks consist of convolutional layers, pooling layers, and fully connected dense layers for visual pattern recognition.",
+        "metadata": {"parent_id": "doc-2#p10", "book_reference": "Other Book"}
+    }
+    chunk_distinct = {
+        "chunk_id": "doc-1#p50#c1",
+        "text": "Recurrent neural networks process sequential data using hidden states that pass information from previous time steps.",
+        "metadata": {"parent_id": "doc-1#p50", "book_reference": "Deep Learning"}
+    }
+
+    deduped = deduplicate_candidate_chunks([chunk_a, chunk_b, chunk_distinct], jaccard_threshold=0.60)
+    assert len(deduped) == 2
+    assert deduped[0]["chunk_id"] == "doc-1#p10#c1"
+    assert deduped[1]["chunk_id"] == "doc-1#p50#c1"
+
+
 if __name__ == "__main__":
     test_no_generic_buzzwords_in_fallback_when_evidence_is_insufficient()
     test_evidence_derived_fallback_extracts_from_citations()
@@ -213,5 +285,7 @@ if __name__ == "__main__":
     test_query_contextualization_for_conversational_followups()
     test_evidence_sufficiency_evaluation()
     test_api_chat_stream_endpoint()
+    test_retrieval_deduplication_exact_and_cross_doc()
+    test_retrieval_deduplication_fuzzy_sliding_window()
     print("All Stage 8 Academic RAG tests passed successfully!")
 

@@ -80,6 +80,8 @@ async def test_llm_connection(payload: TestLLMRequest):
             endpoint = "https://api.openai.com/v1"
         elif payload.provider == "gemini":
             endpoint = "https://generativelanguage.googleapis.com/v1beta/openai"
+        elif payload.provider == "nvidia":
+            endpoint = "https://integrate.api.nvidia.com/v1"
         else:
             endpoint = "http://localhost:1234/v1"
 
@@ -93,10 +95,14 @@ async def test_llm_connection(payload: TestLLMRequest):
         headers["Authorization"] = f"Bearer {auth_token}"
 
     start_time = time.time()
+    clean_endpoint = endpoint.rstrip("/")
+    if not clean_endpoint.endswith("/v1") and payload.provider in ("lmstudio", "ollama", "custom"):
+        clean_endpoint = f"{clean_endpoint}/v1"
+
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(6.0, connect=2.0)) as client:
-            # 1. Try GET /models
-            models_url = f"{endpoint}/models"
+            # 1. Try GET /models (OpenAI / LM Studio standard)
+            models_url = f"{clean_endpoint}/models"
             try:
                 res = await client.get(models_url, headers=headers)
                 latency_ms = int((time.time() - start_time) * 1000)
@@ -104,18 +110,50 @@ async def test_llm_connection(payload: TestLLMRequest):
                     data = res.json()
                     raw_models = data.get("data", [])
                     model_names = [m.get("id") for m in raw_models if isinstance(m, dict) and "id" in m]
+                    if not model_names and "models" in data:
+                        model_names = [m.get("name") for m in data["models"] if isinstance(m, dict) and "name" in m]
                     return TestLLMResponse(
                         success=True,
                         latencyMs=latency_ms,
-                        message=f"Connected to {payload.provider.upper()} successfully at {endpoint}!",
-                        modelsAvailable=model_names[:10] if model_names else None,
+                        message=f"Connected to {payload.provider.upper()} successfully at {clean_endpoint}!",
+                        modelsAvailable=model_names[:15] if model_names else None,
                     )
             except Exception:
                 pass
 
+            # 1b. For Ollama: Try GET /api/tags
+            if payload.provider == "ollama":
+                try:
+                    base_no_v1 = clean_endpoint.replace("/v1", "")
+                    res_tags = await client.get(f"{base_no_v1}/api/tags", headers=headers)
+                    if res_tags.status_code == 200:
+                        tag_data = res_tags.json()
+                        tag_models = [m.get("name") for m in tag_data.get("models", []) if isinstance(m, dict) and "name" in m]
+                        if tag_models:
+                            latency_ms = int((time.time() - start_time) * 1000)
+                            return TestLLMResponse(
+                                success=True,
+                                latencyMs=latency_ms,
+                                message=f"Connected to OLLAMA successfully at {clean_endpoint}!",
+                                modelsAvailable=tag_models[:15],
+                            )
+                except Exception:
+                    pass
+
             # 2. Try POST /chat/completions with minimal ping
-            chat_url = f"{endpoint}/chat/completions"
-            test_model = payload.model or ("qwen/qwen3.8-27b" if payload.provider == "groq" else "local-model")
+            chat_url = f"{clean_endpoint}/chat/completions"
+            test_model = payload.model
+            if not test_model or test_model in ("local-model", ""):
+                test_model = (
+                    "qwen/qwen3.8-27b" if payload.provider == "groq"
+                    else "gemini-2.5-flash" if payload.provider == "gemini"
+                    else "meta/llama-3.3-70b-instruct" if payload.provider == "nvidia"
+                    else "gpt-4o" if payload.provider == "openai"
+                    else "local-model"
+                )
+            elif payload.provider == "gemini" and test_model in ("gemini-2.0-flash", "gemini-2.0-flash-exp", "gemini-2.0"):
+                test_model = "gemini-2.5-flash"
+
             res2 = await client.post(
                 chat_url,
                 headers=headers,
@@ -125,18 +163,27 @@ async def test_llm_connection(payload: TestLLMRequest):
                     "max_tokens": 1,
                 },
             )
-            # Automatic fallback for Groq if the selected model returned 404 (e.g. decommissioned or unavailable)
-            if res2.status_code == 404 and payload.provider == "groq" and test_model != "qwen/qwen3.8-27b":
-                test_model = "qwen/qwen3.8-27b"
-                res2 = await client.post(
-                    chat_url,
-                    headers=headers,
-                    json={
-                        "model": test_model,
-                        "messages": [{"role": "user", "content": "ping"}],
-                        "max_tokens": 1,
-                    },
-                )
+            # Automatic fallback if the selected model returned 404 (e.g. decommissioned or unavailable)
+            if res2.status_code == 404:
+                fallback_candidate = None
+                if payload.provider == "groq" and test_model != "qwen/qwen3.8-27b":
+                    fallback_candidate = "qwen/qwen3.8-27b"
+                elif payload.provider == "gemini" and test_model != "gemini-2.5-flash":
+                    fallback_candidate = "gemini-2.5-flash"
+                elif payload.provider == "nvidia" and test_model != "meta/llama-3.1-8b-instruct":
+                    fallback_candidate = "meta/llama-3.1-8b-instruct"
+
+                if fallback_candidate:
+                    test_model = fallback_candidate
+                    res2 = await client.post(
+                        chat_url,
+                        headers=headers,
+                        json={
+                            "model": test_model,
+                            "messages": [{"role": "user", "content": "ping"}],
+                            "max_tokens": 1,
+                        },
+                    )
 
             latency_ms = int((time.time() - start_time) * 1000)
 

@@ -33,7 +33,11 @@ class ChatRequest(BaseModel):
     llmProvider: Optional[str] = None
     llmEndpoint: Optional[str] = None
     llmApiKey: Optional[str] = None
+    llmFallbackApiKey: Optional[str] = None
     llmModel: Optional[str] = None
+    llmFallbackModel: Optional[str] = None
+    llmFallbackEndpoint: Optional[str] = None
+    llmFallbackProvider: Optional[str] = None
     temperature: Optional[float] = None
 
 
@@ -41,12 +45,16 @@ class ChatTelemetry(BaseModel):
     tokens: int = 1240
     tps: float = 58.4
     ttft: str = "1.2s"
+    modelUsed: Optional[str] = None
+    fallbackTriggered: bool = False
+    statusNotice: Optional[Dict[str, Any]] = None
 
 
 class ChatResponse(BaseModel):
     response: str
     citations: List[CitationModel] = Field(default_factory=list)
     telemetry: ChatTelemetry = Field(default_factory=ChatTelemetry)
+    statusNotice: Optional[Dict[str, Any]] = None
     sessionId: str
     messageId: str
 
@@ -71,4 +79,6 @@ class ChatMessage(BaseModel):
     exam_marks_format: Optional[ExamMarksFormat] = None
     search_scope: Optional[SearchScope] = None
     citations: List[CitationModel] = Field(default_factory=list)
+    model_used: Optional[str] = None
+    status_notice: Optional[Dict[str, Any]] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)

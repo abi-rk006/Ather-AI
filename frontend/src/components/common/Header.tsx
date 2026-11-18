@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useChat } from '../../context/ChatContext';
+import { PROVIDER_MODEL_OPTIONS } from '../../constants/models';
 
 export const Header: React.FC = () => {
   const {
@@ -152,13 +153,36 @@ export const Header: React.FC = () => {
           <span className="material-symbols-outlined text-primary text-[18px]">smart_toy</span>
           <select
             value={settings.selectedModel}
-            onChange={(e) => updateSettings({ selectedModel: e.target.value })}
-            className="bg-transparent font-label text-xs font-medium text-on-surface focus:outline-none cursor-pointer pr-1"
+            onChange={(e) => {
+              if (e.target.value === '__custom_settings__') {
+                setCurrentView('settings');
+              } else {
+                updateSettings({ selectedModel: e.target.value });
+              }
+            }}
+            className="bg-transparent font-label text-xs font-medium text-on-surface focus:outline-none cursor-pointer pr-1 max-w-[240px] truncate"
+            title={`Active Model: ${settings.selectedModel} (${settings.llmProvider.toUpperCase()})`}
           >
-            <option value="gpt-4o">GPT-4o (Omni) — 128k</option>
-            <option value="claude-3-5-sonnet">Claude 3.5 Sonnet — 200k</option>
-            <option value="gemini-1-5-pro">Gemini 1.5 Pro — 1M+</option>
-            <option value="llama-3-3-70b">Llama 3.3 70B (Local / Self-Hosted)</option>
+            {/* If custom model not in provider preset list, display it as active */}
+            {(() => {
+              const activeOptions = PROVIDER_MODEL_OPTIONS[settings.llmProvider] || PROVIDER_MODEL_OPTIONS.groq;
+              const isCurrentInOptions = activeOptions.some((m) => m.value === settings.selectedModel);
+              return (
+                <>
+                  {!isCurrentInOptions && settings.selectedModel && (
+                    <option value={settings.selectedModel}>
+                      ✨ {settings.selectedModel} (Custom)
+                    </option>
+                  )}
+                  {activeOptions.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                  <option value="__custom_settings__">⚙️ Enter Custom Model / Settings...</option>
+                </>
+              );
+            })()}
           </select>
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse ml-1" title="API Ready" />
         </div>

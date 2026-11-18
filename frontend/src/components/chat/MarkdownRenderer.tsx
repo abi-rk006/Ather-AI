@@ -9,7 +9,60 @@ interface MarkdownRendererProps {
   className?: string;
 }
 
+/**
+ * Preprocesses markdown content to normalize LaTeX mathematical formulations.
+ * - Converts display brackets \[ ... \] to standard $$ ... $$
+ * - Converts inline parens \( ... \) to standard $ ... $
+ * - Repairs mangled/unrendered bracket equations (e.g. [ h_t = \sigma!\left( ... ) ])
+ * - Cleans up spacing artifacts (;+;, !\left, and unescaped commas) so KaTeX renders cleanly.
+ */
+function preprocessLaTeX(text: string): string {
+  if (!text) return '';
+
+  let normalized = text;
+
+  // 1. Replace \[ ... \] with $$ ... $$
+  normalized = normalized.replace(/\\\[([\s\S]*?)\\\]/g, (_, eq) => {
+    return `\n$$\n${eq.trim()}\n$$\n`;
+  });
+
+  // 2. Replace \( ... \) with $ ... $
+  normalized = normalized.replace(/\\\(([\s\S]*?)\\\)/g, (_, eq) => {
+    return `$${eq.trim()}$`;
+  });
+
+  // 3. Replace standalone bracket equations [ h_t = ... ] that are not markdown links [text](url)
+  normalized = normalized.replace(
+    /(?:^|\n)\s*\[\s*([a-zA-Z0-9_{}\\\s=+\-*\/^()|,;!]+?)\s*\]\s*(?=\n|$)(?!\s*\()/g,
+    (match, eq) => {
+      if (eq.includes('=') || /[_^\\{}]/.test(eq)) {
+        const cleanEq = eq
+          .replace(/!\s*\\left/g, '\\left')
+          .replace(/;\s*\+\s*;/g, ' + ')
+          .replace(/;\s*-\s*;/g, ' - ')
+          .replace(/,\s*([a-zA-Z])/g, ' $1');
+        return `\n$$\n${cleanEq.trim()}\n$$\n`;
+      }
+      return match;
+    }
+  );
+
+  // 4. Clean any lingering artifacts in $$ ... $$
+  normalized = normalized.replace(/\$\$([\s\S]*?)\$\$/g, (_, eq) => {
+    const clean = eq
+      .replace(/!\s*\\left/g, '\\left')
+      .replace(/;\s*\+\s*;/g, ' + ')
+      .replace(/;\s*-\s*;/g, ' - ')
+      .replace(/,\s*([a-zA-Z])/g, ' $1');
+    return `$$\n${clean.trim()}\n$$`;
+  });
+
+  return normalized;
+}
+
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '' }) => {
+  const processedContent = preprocessLaTeX(content);
+
   return (
     <div className={`markdown-body text-xs sm:text-sm text-on-surface leading-relaxed break-words ${className}`}>
       <ReactMarkdown
@@ -121,7 +174,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
           ),
         }}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
     </div>
   );
